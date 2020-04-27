@@ -161,7 +161,7 @@ class Cosmology(object):
         return self._calc_D_L
 
     @property
-    def kpc_per_arcsec(self):
+    def as_kpc(self):
         """Get number of kpc per arcsec."""
         self._calculate()
         return self._calc_kpc_DA

@@ -16,6 +16,13 @@
 # MA 02111-1307, USA
 
 from .model import ObjModelBase
+from .profile import Radii
+
+def compute_emissivity(image, radii, NH, cosmo, ne_arr, T_arr, Z_arr):
+    pass
+
+def project_emissivity(imgarr, radii, emissivity):
+    pass
 
 class ClusterNonHydro(ObjModelBase):
 
@@ -25,6 +32,7 @@ class ClusterNonHydro(ObjModelBase):
             NH_1022cm2=0.,
             ne_prof=None, T_prof=None, Z_prof=None,
             expmap=None,
+            maxradius_kpc=3000.,
             cx=0., cy=0.
     ):
         ObjModelBase.__init__(
@@ -35,3 +43,30 @@ class ClusterNonHydro(ObjModelBase):
         self.ne_prof = ne_prof
         self.T_prof = T_prof
         self.Z_prof = Z_prof
+
+        self.pixsize_radii = {}  # radii indexed by pixsize
+        for img in images:
+            pixsize_as = img.pixsize_as
+            if pixsize_as not in self.pixsize_radii:
+                pixsize_kpc = images[0].pixsize_as * cosmo.as_kpc
+                edges_kpc = N.arange(int(maxradius_kpc/pixsize_kpc)+1)*pixsize_kpc
+                self.pixsize_radii[pixsize_as] = Radii(edges_kpc)
+
+    def compute(self, imgarrs):
+
+        # get intrinsic profiles for each pixel size
+        ne_arr = {}
+        T_arr = {}
+        Z_arr = {}
+        for pixsize, radii in self.pixsize_radii.items():
+            ne_arr[pixsize] = self.ne_prof.compute(radii)
+            T_arr[pixsize] = self.T_prof.compute(radii)
+            Z_arr[pixsize] = self.Z_prof.compute(radii)
+
+        for image in self.images:
+            pixsize = image.pixsize_as
+            emiss_arr = compute_emissivity(
+                image, self.pixsize_radii[pixsize],
+                self.NH_1022pcm2, self.cosmo,
+                ne_arr[pixsize], T_arr[pixsize], Z_arr[pixsize]
+            )
