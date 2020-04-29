@@ -23,7 +23,13 @@ public:
   VecF(const float* x) : v(_mm256_loadu_ps(x))
   {}
 
-  // steps to incremenet to next block
+  VecF& operator=(const VecF& o)
+  {
+    v = o.v;
+    return *this;
+  }
+
+  // steps to increment to next block
   static VecF step()
   {
     return VecF(7,6,5,4,3,2,1,0);
@@ -37,7 +43,7 @@ public:
     // make this fancier
     return v[0]+v[1]+v[2]+v[3]+v[4]+v[5]+v[6]+v[7];
   }
-  
+
   __m256 v;
 };
 
@@ -96,7 +102,13 @@ public:
 			 (reinterpret_cast<__m256i const *>(x)))
   {}
 
-  // steps to incremenet to next block
+  VecI& operator=(const VecI& o)
+  {
+    v = o.v;
+    return *this;
+  }
+
+  // steps to increment to next block
   static VecI step()
   {
     return VecI(7,6,5,4,3,2,1,0);

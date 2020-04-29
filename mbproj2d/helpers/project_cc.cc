@@ -90,17 +90,17 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
   const int y2 = min(int(yc+rbin*nbins), yw-1);
 
   const float invrbin = 1/rbin;
-  
+
   for(int y=y1; y<=y2; ++y)
     for(int x=x1; x<=x2; ++x)
       {
 	const float r = sqrt(sqr(x-xc) + sqr(y-yc)) * invrbin;
-	
+
 	const int i0 = min(int(r), nbins-1);
 	const int i1 = min(i0+1, nbins-1);
 	const float w1 = r-int(r);
 	const float w0 = 1-w1;
-	
+
 	const float val = sb[i0]*w0 + sb[i1]*w1;
 
 	img[y*xw+x] += val;
@@ -126,12 +126,12 @@ float logLikelihoodAVX(int nelem, const float* data, const float* model)
   // this is a Kahan summation to improve accuracy
   // https://en.wikipedia.org/wiki/Kahan_summation_algorithm
   VecF sumv(0.f);
-  VecF c(0.f); 
+  VecF c(0.f);
   while(nelem >= int(VecF::nelem))
     {
       VecF d(data);
       VecF m(model);
-      
+
       VecF val(d*log(m) - m);
       VecF y = val-c;
       VecF t = sumv+y;
