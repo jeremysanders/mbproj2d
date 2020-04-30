@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <algorithm>
+#include <vector>
 
 #include "simd_avx2.hh"
 
@@ -77,13 +78,16 @@ void project(const float rbin, const int numbins,
     }
 }
 
-// add a profile to image
-// ensure last value in sb is 0
-
 void add_sb_prof(const float rbin, const int nbins, const float *sb,
 		 const float xc, const float yc,
-		 const int xw, const int yw, float *img)
+		 const int xw, const int yw,
+		 const float* expmap,
+		 float *img)
 {
+  // copy to ensure outer bin is 0
+  std::vector<float> cpy_sb(sb, sb+nbins);
+  cpy_sb.push_back(0);
+
   const int x1 = max(int(xc-rbin*nbins), 0);
   const int x2 = min(int(xc+rbin*nbins), xw-1);
   const int y1 = max(int(yc-rbin*nbins), 0);
@@ -96,14 +100,14 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
       {
 	const float r = sqrt(sqr(x-xc) + sqr(y-yc)) * invrbin;
 
-	const int i0 = min(int(r), nbins-1);
-	const int i1 = min(i0+1, nbins-1);
+	const int i0 = min(int(r), nbins);
+	const int i1 = min(i0+1, nbins);
 	const float w1 = r-int(r);
 	const float w0 = 1-w1;
 
-	const float val = sb[i0]*w0 + sb[i1]*w1;
+	const float val = cpy_sb[i0]*w0 + cpy_sb[i1]*w1;
 
-	img[y*xw+x] += val;
+	img[y*xw+x] += val * expmap[y*xw+x];
       }
 }
 

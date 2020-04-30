@@ -1,0 +1,57 @@
+# Copyright (C) 2020 Jeremy Sanders <jeremy@jeremysanders.net>
+#
+# This library is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Library General Public
+# License as published by the Free Software Foundation; either
+# version 2 of the License, or (at your option) any later version.
+#
+# This library is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Library General Public License for more details.
+#
+# You should have received a copy of the GNU Library General Public
+# License along with this library; if not, write to the Free
+# Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
+# MA 02111-1307, USA
+
+class Image:
+    def __init__(
+            self, imgid, imagearr,
+            emin_keV=0.5, emax_keV=2.0,
+            rmf='image.rmf',
+            arf='image.arf',
+            pixsize_as=1.0,
+            expmaps=None,
+            mask=None,
+            psf=None,
+            origin=(0,0),
+    ):
+        """Image class holds all information about an image.
+
+        :param imgid: unique id for image (str or int)
+        :param imagearr: numpy image array
+        :param float emin_keV: minimum energy
+        :param float emax_keV: maximum energy
+        :param rmf: response matrix file
+        :param arf: ancillary response matrix file
+        :param pixsize_as: size of pixels in arcsec
+        :param expmaps: list or dict of numpy exposure map arrays (different components can use different exposure maps, if needed)
+        :param mask: numpy mask array
+        :param psf: PSF object
+        :param origin: position (y,x) coordinates are measured relative to (should be same position in all images)
+        """
+
+        self.imgid = imgid
+        self.emin_keV = emin_keV
+        self.emax_keV = emax_keV
+        self.rmf = rmf
+        self.arf = arf
+        self.imagearr = imagearr
+        self.shape = imagearr.shape
+        self.pixsize_as = pixsize_as
+        self.invpixsize = 1/pixsize_as
+        self.mask = mask
+        self.expmaps = expmaps
+        self.psf = psf
+        self.origin = origin

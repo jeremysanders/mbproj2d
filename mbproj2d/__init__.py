@@ -15,8 +15,10 @@
 # Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
 # MA 02111-1307, USA
 
-from param import *
-from physconstants import *
-from model import *
-from cluster import *
-
+from .param import *
+from .physconstants import *
+from .data import *
+from .model import *
+from .cluster import *
+from .cosmo import *
+from .profile import *

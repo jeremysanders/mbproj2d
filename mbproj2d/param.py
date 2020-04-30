@@ -87,7 +87,7 @@ class ParamGaussian(ParamBase):
             self.val, self.prior_mu, self.prior_sigma, self.frozen)
 
     def prior(self):
-        if self.prior_sigma == 0:
+        if self.prior_sigma <= 0:
             return 0.
 
         return (

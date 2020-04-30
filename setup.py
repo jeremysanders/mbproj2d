@@ -2,10 +2,10 @@ from setuptools import Extension, setup
 from Cython.Build import cythonize
 
 
-sourcefiles = ['mbproj2d/helpers/project.pyx', 'mbproj2d/helpers/project_cc.cc']
+sourcefiles = ['mbproj2d/fast/project.pyx', 'mbproj2d/fast/project_cc.cc']
 
 extensions = [Extension(
-    "mbproj2d.helpers",
+    "mbproj2d.fast",
     sourcefiles,
     extra_compile_args=['-fno-math-errno', '-mavx2'],
 )]

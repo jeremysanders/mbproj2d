@@ -30,7 +30,7 @@ import numpy as N
 import scipy.interpolate
 
 from . import utils
-from .xspechelper import XSpecHelper
+from .xspechelper import XSpecContext
 
 class RateCalc:
     """Get count rates for temperatures, densities and metallicities using xspec
@@ -46,8 +46,8 @@ class RateCalc:
     Tsteps = 100
     Tlogvals = N.linspace(N.log(Tmin), N.log(Tmax), Tsteps)
 
-    hdffname = 'countrate_cache_2d.hdf5'
-    
+    hdffname = 'mbproj2d_cache.hdf5'
+
     def __init__(self, cosmo, rmf, arf, minenergy_keV, maxenergy_keV, NH_1022pcm2):
 
         if not os.path.exists(rmf):
@@ -56,22 +56,22 @@ class RateCalc:
         self.cosmo = cosmo
         self.rmf = rmf
         self.arf = arf
-        self.minenergy_keV
-        self.maxenergy_keV
-        self.NH_1022pcm2
+        self.minenergy_keV = minenergy_keV
+        self.maxenergy_keV = maxenergy_keV
+        self.NH_1022pcm2 = NH_1022pcm2
 
         # build a key to lookup/store in the cache file
         h = hashlib.md5()
-        h.update(rmf)
-        h.update(arf)
-        h.update(N.array(cosmo.z, minenergy_keV, maxenergy_keV, NH_1022pcm2))
+        h.update(rmf.encode('utf8'))
+        h.update(arf.encode('utf8'))
+        h.update(N.array((cosmo.z, minenergy_keV, maxenergy_keV, NH_1022pcm2)))
         h.update(self.Tlogvals)
         self.key = h.hexdigest()
 
         self._cacheRates()
 
     def _cacheRates(self):
-        """Work out rate for temperature values for key given for Z=0,1
+        """Work out rate per kpc3 for temperature values for key given for Z=0,1
         """
 
         # lock hdf5 for concurrent access
@@ -82,41 +82,41 @@ class RateCalc:
                     # already calculated
                     ZTrates = N.array(fcache[self.key])
                 else:
-                    # calculate using xspec                    
-                    with XspecContext() as xspec:
+                    # calculate using xspec
+                    with XSpecContext() as xspec:
                         xspec.changeResponse(
                             self.rmf, self.arf, self.minenergy_keV, self.maxenergy_keV)
                         ZTrates = N.array([
                             [
                                 xspec.getCountsPerSec(
-                                    self.NH_1022pcm2, T, Z, self.cosmo.z, 1.)
+                                    self.NH_1022pcm2, T, Z, self.cosmo, 1.)
                                 for T in N.exp(self.Tlogvals)
                             ]
                             for Z in (0, 1)
                         ])
                     fcache[self.key] = ZTrates
 
-        Ztrates = N.clip(Ztrates, 1e-100, None)
+        Ztrates = N.clip(ZTrates, 1e-100, None)
         self.Z0rates = N.log(ZTrates[0])
         self.Z1rates = N.log(ZTrates[1])
 
-    def getRate(T_keV, Z_solar, ne_cm3):
-        """Get the count rates for an array of T,Z,ne."""
-        
+    def getRate(self, T_keV, Z_solar, ne_cm3):
+        """Get the count rates per kpc3 for an array of T,Z,ne."""
+
         T_keV = N.clip(T_keV, self.Tmin, self.Tmax)
         logT = N.log(T_keV)
         Z0T_ctrate = N.exp(N.interp(logT, self.Tlogvals, self.Z0rates))
         Z1T_ctrate = N.exp(N.interp(logT, self.Tlogvals, self.Z1rates))
-        
+
         # use Z=0 and Z=1 count rates to evaluate at Z given
         return (Z0T_ctrate + (Z1T_ctrate-Z0T_ctrate)*Z_solar) * ne_cm3**2
-        
+
 class FluxCalc:
     """Get unabsorbed flux for model with properties given."""
-    
+
     def __init__(self):
         self.fluxcache = {}
-    
+
     def getFlux(self, T_keV, Z_solar, ne_cm3, emin_keV=0.01, emax_keV=100.):
         """Get flux per cm3 in erg/cm2/s.
 

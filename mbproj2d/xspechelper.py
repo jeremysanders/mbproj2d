@@ -20,16 +20,16 @@ given model parameters.
 
 """
 
+from math import pi
 import subprocess
 import os
 import select
 import atexit
 import re
 import sys
-from math import pi
 import signal
 
-from .physconstants import Mpc_cm, ne_nH
+from .physconstants import Mpc_cm, ne_nH, kpc_cm
 from . import cosmo
 
 def deleteFile(filename):
@@ -59,7 +59,9 @@ class XSpecHelper:
 
     specialcode = '@S@T@V'
     specialre = re.compile('%s (.*) %s' % (specialcode, specialcode))
-    normfactor = 1e75 # multiply norm by this to get into sensible units in xspec
+
+    # results are per volume of kpc3
+    unitvol_cm3 = kpc_cm**3
 
     def __init__(self):
         try:
@@ -114,9 +116,12 @@ class XSpecHelper:
     def setModel(self, NH_1022, T_keV, Z_solar, cosmo, ne_cm3):
         """Make a model with column density, temperature and density given."""
         self.write('model none\n')
-        norm = 1e-14 / 4 / pi / (cosmo.D_A*Mpc_cm * (1.+cosmo.z))**2 * ne_cm3**2 / ne_nH
+        norm = (
+            1e-14 / 4 / pi / (cosmo.D_A*Mpc_cm * (1.+cosmo.z))**2 * ne_cm3**2 / ne_nH *
+            self.unitvol_cm3
+            )
         self.write('model TBabs(apec) & %g & %g & %g & %g & %g\n' %
-            (NH_1022, T_keV, Z_solar, cosmo.z, norm*XSpecHelper.normfactor))
+            (NH_1022, T_keV, Z_solar, cosmo.z, norm))
         self.throwAwayOutput()
 
     def changeResponse(self, rmf, arf, minenergy_keV, maxenergy_keV):
@@ -140,12 +145,13 @@ class XSpecHelper:
         self.throwAwayOutput()
 
     def getCountsPerSec(self, NH_1022, T_keV, Z_solar, cosmo, ne_cm3):
-        """Return number of counts per second given parameters."""
+        """Return number of counts per second given parameters for a unit volume (kpc3).
+        """
         self.setModel(NH_1022, T_keV, Z_solar, cosmo, ne_cm3)
         self.write('puts "$SCODE [tcloutr rate 1] $SCODE"\n')
         #self.xspecsub.stdin.flush()
         retn = self.readResult()
-        modelrate = float( retn.split()[2] ) / XSpecHelper.normfactor
+        modelrate = float( retn.split()[2] )
         return modelrate
 
     def getFlux(self, T_keV, Z_solar, cosmo, ne_cm3, emin_keV=0.01, emax_keV=100.):
@@ -155,7 +161,7 @@ class XSpecHelper:
         self.setModel(0., T_keV, Z_solar, cosmo, ne_cm3)
         self.write('flux %e %e\n' % (emin_keV, emax_keV))
         self.write('puts "$SCODE [tcloutr flux] $SCODE"\n')
-        flux = float( self.readResult().split()[0] ) / XSpecHelper.normfactor
+        flux = float( self.readResult().split()[0] )
         return flux
 
     def finish(self):
@@ -170,12 +176,12 @@ class XSpecHelper:
 
 class XSpecContext:
     """Manager to handle creating xspec instance and cleaning up."""
-    
+
     def __enter__(self):
         self.xspec = XSpecHelper()
         return self.xspec
 
-    def __exit__(self):
+    def __exit__(self, ttype, value, tb):
         self.xspec.finish()
 
 def _finishXSpecs():

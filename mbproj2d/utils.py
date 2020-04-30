@@ -17,6 +17,7 @@
 
 """Collection of useful functions."""
 
+import math
 import sys
 import os
 import time
@@ -29,6 +30,14 @@ def uprint(*args, **argsv):
     """Unbuffered print."""
     print(*args, **argsv)
     sys.stdout.flush()
+
+def diffCube(a, b):
+    """Difference between a**3 and b**3."""
+    return (a-b)*(a*a+a*b+b*b)
+
+def diffSqr(a, b):
+    """Difference between a**2 and b**2."""
+    return (a+b)*(a-b)
 
 def projectionVolume(R1, R2, y1, y2):
     """Return the projected volume of a shell of radius R1->R2 onto an
@@ -50,7 +59,7 @@ def projectionVolume(R1, R2, y1, y2):
     p3 = truncSqrt(R2**2 - y2**2)
     p4 = truncSqrt(R2**2 - y1**2)
 
-    return (2/3) * N.pi * ((p1**3 - p2**3) + (p4**3 - p3**3))
+    return (2/3*math.pi) * ((p1**3 - p2**3) + (p4**3 - p3**3))
 
 def projectionVolumeMatrix(radii):
     """Calculate volumes (front and back) using a matrix calculation.
@@ -80,7 +89,7 @@ def projectionVolumeMatrix(radii):
     p3 = (R2_2-y2_2).clip(0)
     p4 = (R2_2-y1_2).clip(0)
 
-    return 2 * (2/3) * N.pi * ((p1**1.5 - p2**1.5) + (p4**1.5 - p3**1.5))
+    return (4/3*math.pi) * ((p1**1.5 - p2**1.5) + (p4**1.5 - p3**1.5))
 
 def symmetriseErrors(data):
     """Take numpy-format data,+,- and convert to data,+-."""
@@ -89,7 +98,7 @@ def symmetriseErrors(data):
     datacpy[:,1] = symerr
     return datacpy
 
-def getMedianAndErrors(results):
+def calcMedianErrors(results):
     """Take a set of repeated results, and calculate the median and errors (from perecentiles)."""
     r = N.array(results)
     r.sort(0)
@@ -103,21 +112,6 @@ def getMedianAndErrors(results):
 def calcChi2(model, data, error):
     """Calculate chi2 between model and data."""
     return (((data-model)/error)**2).sum()
-
-def readProfile(filename, column, cnvtfloat=True):
-    """Read a particular column from a file, ignoring blank lines."""
-    out = []
-    with open(filename) as f:
-        for line in f:
-            comment = line.find('#')
-            if comment >= 0:
-                line = line[:comment]
-            p = line.split()
-            if len(p) > 0:
-                out.append(p[column])
-    if cnvtfloat:
-        out = N.array([float(x) for x in out])
-    return out
 
 def cashLogLikelihood(data, model):
     """Calculate log likelihood of Cash statistic."""

@@ -20,18 +20,33 @@ import numpy as N
 
 from .physconstants import kpc_cm
 from .param import Param
-from .utils import diff_cube
+from . import utils
 
 class Radii:
-    def __init__(self, edges_kpc):
-        self.num = len(edges_kpc)-1
-        self.edges_kpc = edges_kpc
-        self.inner_kpc = edges_kpc[:-1]
-        self.outer_kpc = edges_kpc[1:]
-        self.cent_kpc = 0.5*(edges_kpc[1:]-edges_kpc[:-1])
-        self.cent_logkpc = N.log(self.cent_kpc)
+    def __init__(self, rshell_kpc, num):
+        """Radii are equally-spaced with spacing rshell_kpc and num annuli/shells."""
 
-        self.vol_kpc3 = (4/3*math.pi)*diff_cube(self.outer_kpc, self.inner_kpc)
+        self.num = num
+        self.rshell_kpc = rshell_kpc
+
+        self.edges_kpc = N.arange(num+1)*rshell_kpc
+        self.inner_kpc = self.edges_kpc[:-1]
+        self.outer_kpc = self.edges_kpc[1:]
+        self.cent_kpc = 0.5*(self.edges_kpc[1:]-self.edges_kpc[:-1])
+        self.cent_logkpc = N.log(self.cent_kpc)
+        self.area_kpc2 = math.pi * utils.diffSqr(self.outer_kpc, self.inner_kpc)
+        self.vol_kpc3 = (4/3*math.pi)*utils.diffCube(self.outer_kpc, self.inner_kpc)
+
+        # matrix to convert from emissivity (per kpc3) to surface
+        # brightness (per kpc2). projectionVolumeMatrix produces a
+        # matrix which gives the total counts per annulus, so we want
+        # to divide by the annulus area.
+        self.proj_matrix = (
+            utils.projectionVolumeMatrix(self.edges_kpc) / self.area_kpc2[:,N.newaxis] )
+
+    def project(self, emissivity_pkpc3):
+        """Project from emissivity profile to surface brightness (per kpc2)."""
+        return self.proj_matrix.dot(emissivity_pkpc3).astype(N.float32)
 
 class ProfileBase:
     def __init__(self, name, pars):
@@ -52,7 +67,7 @@ class ProfileFlat(ProfileBase):
         pars[name] = Param(defval)
         self.log = log
 
-    def compute(self, redges_kpc):
+    def compute(self, radii):
         v = self.pars[self.name].vout()
         if self.log:
             v = math.exp(v)

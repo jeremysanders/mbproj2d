@@ -20,47 +20,6 @@ import numpy as N
 
 from .param import Param, ParamGaussian
 
-class Image:
-    def __init__(
-            self, imgid, imagearr,
-            emin_keV=0.5, emax_keV=2.0,
-            rmf='image.rmf',
-            arf='image.arf',
-            pixsize_as=1.0,
-            expmaps=None,
-            mask=None,
-            psf=None,
-            origin=(0,0),
-    ):
-        """Image class holds all information about an image.
-
-        :param imgid: unique id for image (str or int)
-        :param imagearr: numpy image array
-        :param float emin_keV: minimum energy
-        :param float emax_keV: maximum energy
-        :param rmf: response matrix file
-        :param arf: ancillary response matrix file
-        :param pixsize_as: size of pixels in arcsec
-        :param expmaps: list or dict of numpy exposure map arrays (different components can use different exposure maps, if needed)
-        :param mask: numpy mask array
-        :param psf: PSF object
-        :param origin: position coordinates are measured relative to (should be same position in all images)
-        """
-
-        self.imgid = imgid
-        self.emin_keV = emin_keV
-        self.emax_keV = emax_keV
-        self.rmf = rmf
-        self.arf = arf
-        self.imagearr = imagearr
-        self.shape = imagearr.shape
-        self.pixsize_as = pixsize_as
-        self.invpixsize = 1/pixsize_as
-        self.mask = mask
-        self.expmaps = expmaps
-        self.psf = psf
-        self.origin = origin
-
 class TotalModel:
 
     def __init__(self, pars, images, objmodels=None, backmodels=None):
@@ -76,15 +35,15 @@ class TotalModel:
         """
 
         objimgarrs = [
-            N.zeros(imageinfo.shape, dtype=N.float32)
-            for i in range(len(self.images))
+            N.zeros(image.shape, dtype=N.float32)
+            for image in self.images
         ]
         for model in self.objmodels:
             model.compute(objimgarrs)
 
         bgimgarrs = [
-            N.zeros(imageinfo.shape, dtype=N.float32)
-            for i in range(len(self.images))
+            N.zeros(image.shape, dtype=N.float32)
+            for image in self.images
         ]
         for model in self.backmodels:
             model.compute(bgimgarrs)
@@ -127,7 +86,7 @@ class BackModelFlat(BackModelBase):
 
         :param name: name of model
         :param pars: dict of parameters
-        :param images: list of Image objects
+        :param images: list of data.Image objects
         :param bool log: apply log scaling to value of background
         :param bool normarea: normalise background to per sq arcsec
         :param expmap: name or index of exposure map to use (if any)
@@ -135,11 +94,11 @@ class BackModelFlat(BackModelBase):
         BackModelBase.__init__(self, name, pars, images)
         for image in images:
             pars['%s_%s' % (name, image.imgid)] = Param(0.)
-        pars['%s_scale' % name] = ParamGuassian(
+        pars['%s_scale' % name] = ParamGaussian(
             1.0, 1.0, 0.05, frozen=True)
         self.normarea = normarea
         self.log = log
-        self.expmap = None
+        self.expmap = expmap
 
     def compute(self, imgarrs):
         scale = self.pars['%s_scale' % self.name].vout()
@@ -156,6 +115,15 @@ class BackModelFlat(BackModelBase):
 class ObjModelBase:
 
     def __init__(self, name, pars, images, expmap=None, cx=0., cy=0.):
+        """
+        :param name: name of model
+        :param pars: dict of parameters
+        :param images: list of data.Image objects
+        :param expmap: name or index of exposure map to use (if any)
+        :param cx: initial centre x coordinate
+        :param cy: initial centre y coordinate
+        """
+
         self.name = name
         self.pars = pars
         self.images = images

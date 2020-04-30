@@ -15,21 +15,19 @@
 # Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
 # MA 02111-1307, USA
 
+import numpy as N
+
 from .model import ObjModelBase
+from .ratecalc import RateCalc
 from .profile import Radii
-
-def compute_emissivity(image, radii, NH, cosmo, ne_arr, T_arr, Z_arr):
-    pass
-
-def project_emissivity(imgarr, radii, emissivity):
-    pass
+from .fast import addSBToImg
 
 class ClusterNonHydro(ObjModelBase):
 
     def __init__(
             self, name, pars, images,
             cosmo=None,
-            NH_1022cm2=0.,
+            NH_1022pcm2=0.,
             ne_prof=None, T_prof=None, Z_prof=None,
             expmap=None,
             maxradius_kpc=3000.,
@@ -44,29 +42,59 @@ class ClusterNonHydro(ObjModelBase):
         self.T_prof = T_prof
         self.Z_prof = Z_prof
 
-        self.pixsize_radii = {}  # radii indexed by pixsize
+        self.pixsize_Radii = {}  # radii indexed by pixsize
+        self.image_RateCalc = {} # RateCalc for each image
+
         for img in images:
             pixsize_as = img.pixsize_as
-            if pixsize_as not in self.pixsize_radii:
-                pixsize_kpc = images[0].pixsize_as * cosmo.as_kpc
-                edges_kpc = N.arange(int(maxradius_kpc/pixsize_kpc)+1)*pixsize_kpc
-                self.pixsize_radii[pixsize_as] = Radii(edges_kpc)
+
+            # Radii object is for a particular pixel size
+            if pixsize_as not in self.pixsize_Radii:
+                pixsize_kpc = (images[0].pixsize_as * cosmo.as_kpc)**2
+                num = int(maxradius_kpc/pixsize_kpc)+1
+                self.pixsize_Radii[pixsize_as] = Radii(pixsize_kpc, num)
+
+            # make object to convert from plasma properties -> rates/kpc3
+            self.image_RateCalc[img] = RateCalc(
+                cosmo, img.rmf, img.arf, img.emin_keV, img.emax_keV,
+                NH_1022pcm2)
 
     def compute(self, imgarrs):
+        """Add cluster model to images."""
 
-        # get intrinsic profiles for each pixel size
+        cy_as = self.pars['%s_cy' % self.name].vout()
+        cx_as = self.pars['%s_cx' % self.name].vout()
+
+        # get plasma profiles for each pixel size
         ne_arr = {}
         T_arr = {}
         Z_arr = {}
-        for pixsize, radii in self.pixsize_radii.items():
+        for pixsize, radii in self.pixsize_Radii.items():
             ne_arr[pixsize] = self.ne_prof.compute(radii)
             T_arr[pixsize] = self.T_prof.compute(radii)
             Z_arr[pixsize] = self.Z_prof.compute(radii)
 
-        for image in self.images:
-            pixsize = image.pixsize_as
-            emiss_arr = compute_emissivity(
-                image, self.pixsize_radii[pixsize],
-                self.NH_1022pcm2, self.cosmo,
-                ne_arr[pixsize], T_arr[pixsize], Z_arr[pixsize]
-            )
+        # add profiles to each image
+        for img, imgarr in zip(self.images, imgarrs):
+            pixsize_as = img.pixsize_as
+
+            # calculate emissivity profile (per kpc3)
+            emiss_arr_pkpc3 = self.image_RateCalc[img].getRate(
+                T_arr[pixsize_as], Z_arr[pixsize_as], ne_arr[pixsize_as])
+
+            # project emissivity to SB profile and convert to per pixel
+            sb_arr = self.pixsize_Radii[pixsize_as].project(emiss_arr_pkpc3)
+            sb_arr *= (self.cosmo.as_kpc*pixsize_as)**2
+
+            if self.expmap is None:
+                # inefficient
+                expmap = N.ones(img.shape, dtype=N.float32)
+            else:
+                expmap = img.expmaps[self.expmap]
+
+            # compute centre in pixels
+            pcy = cy_as*img.invpixsize + img.origin[0]
+            pcx = cx_as*img.invpixsize + img.origin[1]
+
+            # add SB profile to image
+            addSBToImg(1, sb_arr, pcx, pcy, expmap, imgarr)
