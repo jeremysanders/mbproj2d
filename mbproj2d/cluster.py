@@ -50,7 +50,7 @@ class ClusterNonHydro(ObjModelBase):
 
             # Radii object is for a particular pixel size
             if pixsize_as not in self.pixsize_Radii:
-                pixsize_kpc = (images[0].pixsize_as * cosmo.as_kpc)**2
+                pixsize_kpc = images[0].pixsize_as * cosmo.as_kpc
                 num = int(maxradius_kpc/pixsize_kpc)+1
                 self.pixsize_Radii[pixsize_as] = Radii(pixsize_kpc, num)
 
