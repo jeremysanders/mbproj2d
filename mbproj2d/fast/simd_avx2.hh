@@ -134,4 +134,18 @@ inline VecI operator*(const VecI& a, const VecI& b)
   return _mm256_mul_epi32(a.v, b.v);
 }
 
+// mixed functions
+
+// take a where mask==-1 or b where mask==0
+inline VecF where(const VecI& mask, const VecF& a, const VecF& b)
+{
+  return _mm256_blendv_ps(a.v, b.v, _mm256_castsi256_ps(mask.v));
+}
+
+// apply integer mask to floating point value
+inline VecF and_mask(const VecF& a, const VecI& mask)
+{
+  return _mm256_and_ps(a.v, _mm256_castsi256_ps(mask.v));
+}
+
 #endif

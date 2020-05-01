@@ -54,10 +54,12 @@ class Image:
         self.pixsize_as = pixsize_as
         self.invpixsize = 1/pixsize_as
 
+        # mask should be -1 (included) or 0 (excluded), for use in simd
         if mask is None:
-            self.mask = N.ones(self.shape, dtype=N.int32)
+            self.mask = N.empty(self.shape, dtype=N.int32)
+            self.mask.fill(-1)
         else:
-            self.mask = mask.astype(N.int32)
+            self.mask = N.where(mask != 0, -1, 0).astype(N.int32)
 
         self.expmaps = expmaps
         self.psf = psf

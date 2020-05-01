@@ -155,3 +155,38 @@ float logLikelihoodAVX(int nelem, const float* data, const float* model)
     }
   return sum;
 }
+
+float logLikelihoodAVXMasked(int nelem, const float* data, const float* model, const int* mask)
+{
+  // this is a Kahan summation to improve accuracy
+  // https://en.wikipedia.org/wiki/Kahan_summation_algorithm
+  VecF sumv(0.f);
+  VecF c(0.f);
+  while(nelem >= int(VecF::nelem))
+    {
+      // calculate data*log(model)-model, applying mask=-1 or 0
+      VecF d(data);
+      VecF m(model);
+      VecF val = and_mask(d*log(m)-m, VecI(mask));
+
+      // Kahan summation code
+      VecF y = val-c;
+      VecF t = sumv+y;
+      c = (t-sumv)-y;
+      sumv = t;
+
+      nelem -= int(VecF::nelem);
+      data += VecF::nelem;
+      model += VecF::nelem;
+      mask += VecI::nelem;
+    }
+
+  // add remaining items
+  float sum = sumv.hadd();
+  for(int i=0; i<nelem; ++i)
+    {
+      if(mask[i])
+	sum += data[i]*log(model[i]) - model[i];
+    }
+  return sum;
+}

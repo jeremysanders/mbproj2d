@@ -14,6 +14,7 @@ cdef extern from "project_cc.hh":
                      float *img)
     double logLikelihood(const int nelem, const float* data, const float* model)
     float logLikelihoodAVX(const int nelem, const float* data, const float* model)
+    float logLikelihoodAVXMasked(const int nelem, const float* data, const float* model, const int* mask)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -73,3 +74,22 @@ def calcPoissonLogLikelihood(np.ndarray data, np.ndarray model):
     nelem = data.shape[0]*data.shape[1]
     #return logLikelihood(nelem, &data_view[0,0], &model_view[0,0])
     return logLikelihoodAVX(nelem, &data_view[0,0], &model_view[0,0])
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def calcPoissonLogLikelihoodMasked(np.ndarray data, np.ndarray model, np.ndarray mask):
+    assert data.dtype == np.float32
+    assert model.dtype == np.float32
+    assert mask.dtype == np.int32
+    assert data.shape[0] == model.shape[0]
+    assert mask.shape[0] == model.shape[0]
+    assert data.shape[1] == model.shape[1]
+    assert mask.shape[1] == model.shape[1]
+
+    cdef float[:,::1] data_view = data
+    cdef float[:,::1] model_view = model
+    cdef int[:,::1] mask_view = mask
+    cdef int nelem
+
+    nelem = model.shape[0]*model.shape[1]
+    return logLikelihoodAVXMasked(nelem, &data_view[0,0], &model_view[0,0], &mask_view[0,0])

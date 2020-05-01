@@ -10,5 +10,7 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
 
 double logLikelihood(const int nelem, const float* data, const float* model);
 float logLikelihoodAVX(const int nelem, const float* data, const float* model);
+float logLikelihoodAVXMasked(const int nelem, const float* data,
+			     const float* model, const int* mask);
 
 #endif
