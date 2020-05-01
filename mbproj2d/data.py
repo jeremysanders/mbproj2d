@@ -15,6 +15,8 @@
 # Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
 # MA 02111-1307, USA
 
+import numpy as N
+
 class Image:
     def __init__(
             self, imgid, imagearr,
@@ -30,14 +32,14 @@ class Image:
         """Image class holds all information about an image.
 
         :param imgid: unique id for image (str or int)
-        :param imagearr: numpy image array
+        :param imagearr: numpy image array for image
         :param float emin_keV: minimum energy
         :param float emax_keV: maximum energy
         :param rmf: response matrix file
         :param arf: ancillary response matrix file
         :param pixsize_as: size of pixels in arcsec
         :param expmaps: list or dict of numpy exposure map arrays (different components can use different exposure maps, if needed)
-        :param mask: numpy mask array
+        :param mask: numpy mask array (None means no mask)
         :param psf: PSF object
         :param origin: position (y,x) coordinates are measured relative to (should be same position in all images)
         """
@@ -47,11 +49,16 @@ class Image:
         self.emax_keV = emax_keV
         self.rmf = rmf
         self.arf = arf
-        self.imagearr = imagearr
+        self.imagearr = imagearr.astype(N.float32)
         self.shape = imagearr.shape
         self.pixsize_as = pixsize_as
         self.invpixsize = 1/pixsize_as
-        self.mask = mask
+
+        if mask is None:
+            self.mask = N.ones(self.shape, dtype=N.int32)
+        else:
+            self.mask = mask.astype(N.int32)
+
         self.expmaps = expmaps
         self.psf = psf
         self.origin = origin

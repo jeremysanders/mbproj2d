@@ -18,7 +18,7 @@
 import math
 import numpy as N
 
-from .param import Param, ParamGaussian
+from .param import Param, PriorGaussian
 
 class TotalModel:
 
@@ -93,17 +93,17 @@ class BackModelFlat(BackModelBase):
         """
         BackModelBase.__init__(self, name, pars, images)
         for image in images:
-            pars['%s_%s' % (name, image.imgid)] = Param(0.)
-        pars['%s_scale' % name] = ParamGaussian(
-            1.0, 1.0, 0.05, frozen=True)
+            pars['%s_%s' % (name, image.imgid)] = Param(0., minval=0.)
+        pars['%s_scale' % name] = Param(
+            1.0, prior=PriorGaussian(1.0, 0.05), frozen=True)
         self.normarea = normarea
         self.log = log
         self.expmap = expmap
 
     def compute(self, imgarrs):
-        scale = self.pars['%s_scale' % self.name].vout()
+        scale = self.pars['%s_scale' % self.name].v
         for image, imgarr in zip(self.images, imgarrs):
-            v = self.pars['%s_%s' % (self.name, image.imgid)].vout()
+            v = self.pars['%s_%s' % (self.name, image.imgid)].v
             if self.log:
                 v = math.exp(v)
             if self.normarea:

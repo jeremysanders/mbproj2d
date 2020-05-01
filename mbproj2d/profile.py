@@ -68,7 +68,7 @@ class ProfileFlat(ProfileBase):
         self.log = log
 
     def compute(self, radii):
-        v = self.pars[self.name].vout()
+        v = self.pars[self.name].v
         if self.log:
             v = math.exp(v)
         return N.full(radii.num, v)
@@ -90,7 +90,7 @@ class ProfileBinned(ProfileBase):
 
     def compute(self, radii):
         pvals = N.array([
-            self.pars['%s_%03i' % (self.name, i)].vout()
+            self.pars['%s_%03i' % (self.name, i)].v
             for i in range(radii.num)
             ])
         if self.log:
@@ -109,7 +109,7 @@ class ProfileBinned(ProfileBase):
 class ProfileInterpol(ProfileBase):
 
     def __init__(self, name, pars, rcent_kpc, defval=0., log=False):
-        """Create interpolated profile
+        """Create interpolated profile between fixed values
 
         rcent_kpc: where to interpolate between in kpc
         """
@@ -122,10 +122,16 @@ class ProfileInterpol(ProfileBase):
 
     def compute(self, radii):
         pvals = N.array([
-            self.pars['%s_%03i' % (self.name, i)].vout()
+            self.pars['%s_%03i' % (self.name, i)].v
             for i in range(radii.num)
             ])
         vals = N.interp(radii.cent_logkpc, self.rcent_logkpc, pvals)
         if self.log:
             vals = N.exp(vals)
         return vals
+
+class ProfileBeta(ProfileBase):
+
+    def __init__(self, name, pars):
+        for i in len(rbin_edges_kpc)-1:
+            pars['%s_%03i' % (name, i)] = Param(defval)

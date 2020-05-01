@@ -18,80 +18,158 @@
 import math
 import numpy as N
 
-class ParamBase:
-    """Base class for parameters."""
-
-    # is this parameter just linked to another?
-    linked = False
-
-    def __init__(self, val, frozen=False):
-        """
-        :param float val: value of parameter
-        :param bool frozen: whether parameter is allowed to vary
-        """
-        self.val = float(val)
-        self.defval = self.val
-        self.frozen = frozen
+class PriorBase:
+    def calculate(self, val):
+        return 0
 
     def __repr__(self):
-        return '<ParamBase: val=%.3g, frozen=%s>' % (
-            self.val, self.frozen)
+        return '<PriorBase: None>'
 
-    def vout(self):
-        """Return value to be used when calculating model."""
-        return self.val
-
-    def prior():
-        """Log prior on parameter."""
-        return 0.
-
-class Param(ParamBase):
-    """Model parameter with minimum and maximum value."""
-
-    def __init__(self, val, minval=-1e99, maxval=1e99, frozen=False):
-        """
-        :param float val: value of parameter
-        :param float minval: minimum allowed value
-        :param float maxval: maximum allowed value
-        :param bool frozen: whether parameter is allowed to vary
-        """
-        ParamBase.__init__(self, val, frozen=frozen)
+class PriorFlat(PriorBase):
+    def __init__(self, minval, maxval):
+        PriorBase.__init__(self)
         self.minval = minval
         self.maxval = maxval
 
-    def __repr__(self):
-        return '<Param: val=%.3g, minval=%.3g, maxval=%.3g, frozen=%s>' % (
-            self.val, self.minval, self.maxval, self.frozen)
-
-    def prior(self):
-        if self.val < self.minval or self.val > self.maxval:
+    def calculate(self, val):
+        if self.minval <= val <= self.maxval:
+            return 0
+        else:
             return -N.inf
-        return 0.
-
-class ParamGaussian(ParamBase):
-    """Parameter with a Gaussian/normal prior."""
-
-    def __init__(self, val, prior_mu, prior_sigma, frozen=False):
-        """
-        :param float val: value of parameter
-        :param float prior_mu: centre of prior
-        :param float prior_sigma: width of prior
-        :param bool frozen: whether parameter is allowed to vary
-        """
-        ParamBase.__init__(self, val, frozen=frozen)
-        self.prior_mu = prior_mu
-        self.prior_sigma = prior_sigma
 
     def __repr__(self):
-        return '<ParamGaussian: val=%.3g, prior_mu=%.3g, prior_sigma=%.3g, frozen=%s>' % (
-            self.val, self.prior_mu, self.prior_sigma, self.frozen)
+        return '<PriorFlat: minval=%s, maxval=%s>' % (
+            repr(self.minval), repr(self.maxval))
 
-    def prior(self):
-        if self.prior_sigma <= 0:
-            return 0.
+class PriorGaussian(PriorBase):
+    def __init__(self, mu, sigma):
+        PriorBase.__init__(self)
+        self.mu = mu
+        self.sigma = sigma
 
-        return (
-            -0.5*math.log(2*math.pi)
-            -math.log(self.prior_sigma)
-            -0.5*((self.val - self.prior_mu) / self.prior_sigma)**2
+    def calculate(self, val):
+        if self.sigma <= 0:
+            return -N.inf
+        else:
+            return (
+                -0.5*math.log(2*math.pi)
+                -math.log(self.sigma)
+                -0.5*((val - self.mu) / self.sigma)**2
             )
+
+    def __repr__(self):
+        return '<PriorGaussian: mu=%s, sigma=%s>' % (
+            self.mu, self.sigma)
+
+class Param:
+    """Parameter for model."""
+
+    def __init__(
+            self, val, prior=None, frozen=False, transform=None, linked=None,
+            minval=-N.inf, maxval=N.inf):
+        """
+        :param float val: parameter value
+        :param prior: prior object or None for flat prior
+        :param frozen: whether to leave parameter frozen
+        :param transform: function to transform value for model or 'exp' for an exp(x) scaling
+        :param linked: another Param object to link this parameter to another
+        :param float minval: minimum value for default flat prior
+        :param float maxval: maximum value for default flat prior
+        """
+
+        self.val = val
+        self.frozen = frozen
+
+        if prior is None:
+            self.prior = PriorFlat(minval, maxval)
+        else:
+            self.prior = prior
+
+        if transform is None:
+            self.transform = None
+        elif transform == 'exp':
+            self.transform = lambda x: math.exp(x)
+        else:
+            self.transform = transform
+
+        self.linked = linked
+
+    @property
+    def v(self):
+        """Value for using in model, after transformation or linking, if any."""
+
+        if self.linked is None:
+            val = self.val
+        else:
+            val = self.linked.val
+
+        if self.transform is None:
+            return val
+        else:
+            return self.transform(val)
+
+    def isFree(self):
+        """Is the parameter free?"""
+        return self.linked is None and not self.frozen
+
+    def calcPrior(self):
+        """Calculate prior."""
+        if self.linked is not None:
+            return 0
+        else:
+            return self.prior.calculate(self.val)
+
+    def __repr__(self):
+        if self.linked is not None:
+            p = [
+                'linked=%s' % self.linked,
+            ]
+        else:
+            p = [
+                'val=%.3g' % self.val,
+                'frozen=%s' % self.frozen,
+            ]
+        p.append('prior=%s' % repr(self.prior))
+        if self.transform is not None:
+            p.append('transform=%s' % self.transform)
+
+        return '<Param: %s>' % (', '.join(p))
+
+class Params(dict):
+    """Parameters for a model. Based on a dict.
+    """
+
+    def numFree(self):
+        """Return number of free parameters"""
+        return len(self.freeKeys())
+
+    def freeKeys(self):
+        """Return sorted list of keys of parameters which are free"""
+        return [key for key in sorted(self) if self[key].isFree()]
+
+    def freeVals(self):
+        """Return list of values for parameters which are free in sorted key order."""
+        return [par.val for key, par in sorted(self.items()) if par.isFree()]
+
+    def setFree(self, vals):
+        """Given a list of values, set those which are free.
+
+        Note: number of free parameters should be number of vals
+        """
+        i = 0
+        for key in sorted(self):
+            par = self[key]
+            if par.isFree():
+                par.val = vals[i]
+                i += 1
+
+    def calcPrior(self):
+        """Return total prior of parameters."""
+        return sum((par.calcPrior() for par in self.values()))
+
+    def __repr__(self):
+        # sorted repr (to match above)
+        out = []
+        for key in sorted(self):
+            out.append('%s: %s' % (repr(key), repr(self[key])))
+        return '{%s}' % (', '.join(out))

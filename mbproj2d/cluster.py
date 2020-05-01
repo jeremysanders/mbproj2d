@@ -62,8 +62,8 @@ class ClusterNonHydro(ObjModelBase):
     def compute(self, imgarrs):
         """Add cluster model to images."""
 
-        cy_as = self.pars['%s_cy' % self.name].vout()
-        cx_as = self.pars['%s_cx' % self.name].vout()
+        cy_as = self.pars['%s_cy' % self.name].v
+        cx_as = self.pars['%s_cx' % self.name].v
 
         # get plasma profiles for each pixel size
         ne_arr = {}
