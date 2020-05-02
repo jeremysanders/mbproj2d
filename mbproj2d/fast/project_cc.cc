@@ -189,3 +189,49 @@ float logLikelihoodAVXMasked(int nelem, const float* data, const float* model, c
     }
   return sum;
 }
+
+
+// resample a PSF image between two different image resolutions
+void resamplePSF(int psf_nx, int psf_ny,
+                 float psf_pixsize,
+                 float psf_ox, float psf_oy,
+                 const float *psf,
+                 int oversample,
+                 int img_nx, int img_ny,
+                 float img_pixsize,
+                 float *img)
+{
+  oversample = max(oversample, 1);
+  const float inv_over = 1.0f/oversample;
+  const float pix_ratio = img_pixsize / psf_pixsize;
+
+  double img_tot = 0;
+  for(int y=0; y<img_ny; ++y)
+    for(int x=0; x<img_nx; ++x)
+      {
+        // want to put PSF at corners of output image
+        const int wrapy = y<img_ny/2 ? y : y-img_ny;
+        const int wrapx = x<img_nx/2 ? x : x-img_nx;
+
+        float tot = 0;
+        int num = 0;
+        for(int sy=0; sy<oversample; ++sy)
+          for(int sx=0; sx<oversample; ++sx)
+            {
+              const int psfy = int((wrapy+sy*inv_over)*pix_ratio + psf_oy);
+              const int psfx = int((wrapx+sx*inv_over)*pix_ratio + psf_ox);
+              if(psfy >=0 && psfy < psf_ny && psfx >= 0 && psfx < psf_nx)
+                {
+                  tot += psf[ psfy*psf_nx + psfx ];
+                  ++num;
+                }
+            }
+        img[ y*img_nx + x ] = num>0 ? tot/num : 0;
+        img_tot += img[ y*img_nx + x ];
+      }
+
+  // normalise image
+  for(int y=0; y<img_ny; ++y)
+    for(int x=0; x<img_nx; ++x)
+      img[ y*img_nx + x ] /= img_tot;
+}

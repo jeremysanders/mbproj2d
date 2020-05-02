@@ -74,7 +74,7 @@ class RateCalc:
 
         # lock hdf5 for concurrent access
         with utils.WithLock(self.hdffname + '.lockdir') as lock:
-            with h5py.File(self.hdffname) as fcache:
+            with h5py.File(self.hdffname, 'a') as fcache:
 
                 if self.key in fcache:
                     # already calculated

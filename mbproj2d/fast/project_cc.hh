@@ -13,4 +13,13 @@ float logLikelihoodAVX(const int nelem, const float* data, const float* model);
 float logLikelihoodAVXMasked(const int nelem, const float* data,
 			     const float* model, const int* mask);
 
+void resamplePSF(int psf_nx, int psf_ny,
+                 float psf_pixsize,
+                 float psf_ox, float psf_oy,
+                 const float *psf,
+                 int oversample,
+                 int img_nx, int img_ny,
+                 float img_pixsize,
+                 float *img);
+
 #endif

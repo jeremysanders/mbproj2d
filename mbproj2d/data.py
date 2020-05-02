@@ -16,6 +16,7 @@
 import numpy as N
 
 from . import utils
+from . import fast
 
 class Image:
     """Image class details images to fit."""
@@ -71,7 +72,7 @@ class Image:
             self.psf = None
         else:
             # copy so image-specific parts are kept separate
-            self.psf = PSF(self.psf)
+            self.psf = psf.copy()
             self.psf.matchImage(self.shape, pixsize_as)
 
         self.origin = origin
@@ -126,26 +127,15 @@ class PSF:
     def matchImage(self, imgshape, img_pixsize_as):
         """Adjust PSF to different pixel size and image shape."""
 
-        pixratio = img_pixsize_as / self.pixsize_as
-        img_shape = self.img.shape
-
-        # resample input image to output image and pixel size
-        iy, ix = N.indices(imgshape)
-        # we move the origin in the input to the corner in the output
-        iy = N.where(iy>imgshape[0]/2, iy-imgshape[0], iy)
-        ix = N.where(ix>imgshape[1]/2, ix-imgshape[1], ix)
-        iy = (iy*pixratio + self.origin[0]).astype(N.int32)
-        ix = (ix*pixratio + self.origin[1]).astype(N.int32)
-        # clip to edge
-        ix = N.where((ix>=0) & (ix<img_shape[1]), ix, -1)
-        iy = N.where((iy>=0) & (iy<img_shape[0]), iy, -1)
-        # lookup in original image
-        img = self.img[iy, ix]
-        # set out of bounds indices to 0
-        img[(iy==-1) | (ix==-1)] = 0
-        img /= img.sum()
-
-        self.resample = img.astype(N.float32)
+        self.resample = utils.empty_aligned(imgshape, dtype=N.float32)
+        fast.resamplePSFImage(
+            self.img.astype(N.float32),
+            self.resample,
+            psf_pixsize=self.pixsize_as,
+            img_pixsize=img_pixsize_as,
+            psf_ox=self.origin[1],
+            psf_oy=self.origin[0],
+        )
         self.fft = utils.run_rfft2(self.resample)
 
     def applyTo(self, inimg, minval=1e-10):
@@ -156,4 +146,4 @@ class PSF:
         convolved = utils.run_irfft2(imgfft)
         # make sure convolution is positive
         N.clip(convolved, minval, None, out=convolved)
-        return convolved
+        inimg[:,:] = convolved
