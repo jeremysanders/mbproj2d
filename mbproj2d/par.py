@@ -59,7 +59,7 @@ class PriorGaussian(PriorBase):
         return '<PriorGaussian: mu=%s, sigma=%s>' % (
             self.mu, self.sigma)
 
-class Param:
+class Par:
     """Parameter for model."""
 
     def __init__(
@@ -70,7 +70,7 @@ class Param:
         :param prior: prior object or None for flat prior
         :param frozen: whether to leave parameter frozen
         :param transform: function to transform value for model or 'exp' for an exp(x) scaling
-        :param linked: another Param object to link this parameter to another
+        :param linked: another Par object to link this parameter to another
         :param float minval: minimum value for default flat prior
         :param float maxval: maximum value for default flat prior
         """
@@ -131,9 +131,9 @@ class Param:
         if self.transform is not None:
             p.append('transform=%s' % self.transform)
 
-        return '<Param: %s>' % (', '.join(p))
+        return '<Par: %s>' % (', '.join(p))
 
-class Params(dict):
+class Pars(dict):
     """Parameters for a model. Based on a dict.
     """
 

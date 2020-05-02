@@ -13,7 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from .param import *
+from .par import *
 from .physconstants import *
 from .data import *
 from .model import *

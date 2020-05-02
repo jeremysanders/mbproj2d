@@ -16,7 +16,7 @@
 import math
 import numpy as N
 
-from .param import Param, PriorGaussian
+from .par import Par, PriorGaussian
 from . import utils
 
 class TotalModel:
@@ -26,7 +26,7 @@ class TotalModel:
             self, pars, images, src_models=None, src_expmap=None,
             back_models=None):
         """
-        :param pars: Params object
+        :param pars: Pars object
         :param images: list of Image objects
         :param src_models: list of source models
         :param src_expmap: name of exposure map to use for sources
@@ -102,7 +102,7 @@ class BackModelBase:
     def __init__(self, name, pars, images, expmap=None):
         """
         :param name: name of model
-        :param pars: Params() object
+        :param pars: Pars() object
         :param images: list of Image() objects
         :param expmap: exposure map name to lookup in Image
         """
@@ -137,8 +137,8 @@ class BackModelFlat(BackModelBase):
         """
         BackModelBase.__init__(self, name, pars, images, expmap=expmap)
         for image in images:
-            pars['%s_%s' % (name, image.imgid)] = Param(0., minval=0.)
-        pars['%s_scale' % name] = Param(
+            pars['%s_%s' % (name, image.imgid)] = Par(0., minval=0.)
+        pars['%s_scale' % name] = Par(
             1.0, prior=PriorGaussian(1.0, 0.05), frozen=True)
         self.normarea = normarea
         self.log = log
@@ -173,8 +173,8 @@ class SrcModelBase:
         self.images = images
 
         # position of source
-        pars['%s_cx' % name] = Param(cx)
-        pars['%s_cy' % name] = Param(cy)
+        pars['%s_cx' % name] = Par(cx)
+        pars['%s_cy' % name] = Par(cy)
 
     def compute(self, imgarrs):
         pass

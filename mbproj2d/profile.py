@@ -15,9 +15,10 @@
 
 import math
 import numpy as N
+from scipy.special import hyp2f1
 
 from .physconstants import kpc_cm
-from .param import Param
+from .par import Par
 from . import utils
 
 class Radii:
@@ -62,7 +63,7 @@ class ProfileBase:
 class ProfileFlat(ProfileBase):
     def __init__(self, name, pars, defval=0., log=False):
         ProfileBase.__init__(self, name, pars)
-        pars[name] = Param(defval)
+        pars[name] = Par(defval)
         self.log = log
 
     def compute(self, radii):
@@ -82,7 +83,7 @@ class ProfileBinned(ProfileBase):
 
         ProfileBase.__init__(self, name, pars)
         for i in len(rbin_edges_kpc)-1:
-            pars['%s_%03i' % (name, i)] = Param(defval)
+            pars['%s_%03i' % (name, i)] = Par(defval)
         self.rbin_edges_kpc = rbin_edges_kpc
         self.log = log
 
@@ -114,7 +115,7 @@ class ProfileInterpol(ProfileBase):
 
         ProfileBase.__init__(self, name, pars)
         for i in len(rbin_edges_kpc)-1:
-            pars['%s_%03i' % (name, i)] = Param(defval)
+            pars['%s_%03i' % (name, i)] = Par(defval)
         self.rcent_logkpc = N.log(rcent_kpc)
         self.log = log
 
@@ -128,8 +129,46 @@ class ProfileInterpol(ProfileBase):
             vals = N.exp(vals)
         return vals
 
+def _betaprof(rin_kpc, rout_kpc, n0, beta, rc_kpc):
+    """Return beta function density profile
+
+    Calculates average density in each shell.
+    """
+
+    # this is the average density in each shell
+    # i.e.
+    # Integrate[n0*(1 + (r/rc)^2)^(-3*beta/2)*4*Pi*r^2, r]
+    # between r1 and r2
+    def intfn(r_kpc):
+        return (
+            4/3 * n0 * math.pi * r_kpc**3 *
+            hyp2f1(3/2, 3/2*beta, 5/2, -(r_kpc/rc_kpc)**2)
+        )
+    nav = (intfn(rout_kpc) - intfn(rin_kpc)) / (
+        4/3*math.pi * utils.diffCube(rout_kpc,rin_kpc))
+    return nav
+
 class ProfileBeta(ProfileBase):
+    """Beta model.
+
+    Parameterised by:
+    logn0: log_e of n0
+    beta: beta value
+    logrc: log_e of rc_kpc.
+    """
 
     def __init__(self, name, pars):
-        for i in len(rbin_edges_kpc)-1:
-            pars['%s_%03i' % (name, i)] = Param(defval)
+        ProfileBase.__init__(self, name, pars)
+        pars['%s_logn0' % self.name] = Par(math.log(1e-3), minval=-14., maxval=5.)
+        pars['%s_beta' % self.name] = Par(2/3, minval=0., maxval=4.)
+        pars['%s_logrc' % self.name] = Par(math.log(300), minval=-2, maxval=8.5)
+
+    def compute(self, radii):
+        n0 = math.exp(self.pars['%s_logn0' % self.name].v)
+        beta = self.pars['%s_beta' % self.name].v
+        rc_kpc = math.exp(self.pars['%s_logrc' % self.name].v)
+
+        prof = _betaprof(
+            radii.inner_kpc, radii.outer_kpc,
+            n0, beta, rc_kpc)
+        return prof
