@@ -31,7 +31,7 @@ class Radii:
         self.edges_kpc = N.arange(num+1)*rshell_kpc
         self.inner_kpc = self.edges_kpc[:-1]
         self.outer_kpc = self.edges_kpc[1:]
-        self.cent_kpc = 0.5*(self.edges_kpc[1:]-self.edges_kpc[:-1])
+        self.cent_kpc = 0.5*(self.edges_kpc[1:]+self.edges_kpc[:-1])
         self.cent_logkpc = N.log(self.cent_kpc)
         self.area_kpc2 = math.pi * utils.diffSqr(self.outer_kpc, self.inner_kpc)
         self.vol_kpc3 = (4/3*math.pi)*utils.diffCube(self.outer_kpc, self.inner_kpc)
@@ -159,9 +159,9 @@ class ProfileBeta(ProfileBase):
 
     def __init__(self, name, pars):
         ProfileBase.__init__(self, name, pars)
-        pars['%s_logn0' % self.name] = Par(math.log(1e-3), minval=-14., maxval=5.)
-        pars['%s_beta' % self.name] = Par(2/3, minval=0., maxval=4.)
-        pars['%s_logrc' % self.name] = Par(math.log(300), minval=-2, maxval=8.5)
+        pars['%s_logn0' % name] = Par(math.log(1e-3), minval=-14., maxval=5.)
+        pars['%s_beta' % name] = Par(2/3, minval=0., maxval=4.)
+        pars['%s_logrc' % name] = Par(math.log(300), minval=-2, maxval=8.5)
 
     def compute(self, radii):
         n0 = math.exp(self.pars['%s_logn0' % self.name].v)
@@ -172,3 +172,63 @@ class ProfileBeta(ProfileBase):
             radii.inner_kpc, radii.outer_kpc,
             n0, beta, rc_kpc)
         return prof
+
+class ProfileVikhDensity(ProfileBase):
+    """Density model from Vikhlinin+06, Eqn 3.
+
+    Modes:
+    'double': all components
+    'single': only first component
+    'betacore': only first two terms of 1st cmpt (beta, with powerlaw core)
+
+    Densities and radii are are log base 10
+    """
+
+    def __init__(self, name, pars, mode='double'):
+        ProfileBase.__init__(self, name, pars)
+        self.mode = mode
+
+        pars['%s_logn0_1' % name] = Par(math.log(1e-3), minval=-14., maxval=5.)
+        pars['%s_beta_1' % name] = Par(2/3., minval=0., maxval=4.)
+        pars['%s_logrc_1' % name] = Par(math.log(300), minval=-2, maxval=8.5)
+        pars['%s_alpha' % name] = Par(0., minval=-1, maxval=2.)
+
+        if mode in {'single', 'double'}:
+            pars['%s_epsilon' % name] = Par(3., minval=0., maxval=5.)
+            pars['%s_gamma' % name] = Par(3., minval=0., maxval=10, frozen=True)
+            pars['%s_logr_s' % name] = Par(math.log(500), minval=0, maxval=8.5)
+
+        if mode == 'double':
+            pars['%s_logn0_2' % name] = Par(math.log(0.1), minval=-14., maxval=5.)
+            pars['%s_beta_2' % name] = Par(0.5, minval=0., maxval=4.)
+            pars['%s_logrc_2' % name] = Par(math.log(50), minval=-2, maxval=8.5)
+
+    def compute(self, radii):
+        n0_1 = math.exp(self.pars['%s_logn0_1' % self.name].v)
+        beta_1 = self.pars['%s_beta_1' % self.name].v
+        rc_1 = math.exp(self.pars['%s_logrc_1' % self.name].v)
+        alpha = self.pars['%s_alpha' % self.name].v
+
+        r = radii.cent_kpc
+        retn_sqd = (
+            n0_1**2 *
+            (r/rc_1)**(-alpha) / (
+                (1+r**2/rc_1**2)**(3*beta_1-0.5*alpha))
+            )
+
+        if self.mode in ('single', 'double'):
+            r_s = math.exp(self.pars['%s_logr_s' % self.name].v)
+            epsilon = self.pars['%s_epsilon' % self.name].v
+            gamma = self.pars['%s_gamma' % self.name].v
+
+            retn_sqd /= (1+(r/r_s)**gamma)**(epsilon/gamma)
+
+        if self.mode == 'double':
+            n0_2 = math.exp(self.pars['%s_logn0_2' % self.name].v)
+            rc_2 = math.exp(self.pars['%s_logrc_2' % self.name].v)
+            beta_2 = self.pars['%s_beta_2' % self.name].v
+
+            retn_sqd += n0_2**2 / (1 + r**2/rc_2**2)**(3*beta_2)
+
+        ne = N.sqrt(retn_sqd)
+        return ne
