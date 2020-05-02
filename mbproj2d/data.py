@@ -15,9 +15,13 @@
 
 import numpy as N
 
+from . import utils
+
 class Image:
+    """Image class details images to fit."""
+
     def __init__(
-            self, imgid, imagearr,
+            self, img_id, imagearr,
             emin_keV=0.5, emax_keV=2.0,
             rmf='image.rmf',
             arf='image.arf',
@@ -27,38 +31,129 @@ class Image:
             psf=None,
             origin=(0,0),
     ):
-        """Image class holds all information about an image.
-
-        :param imgid: unique id for image (str or int)
+        """
+        :param img_id: unique id for image (str or int)
         :param imagearr: numpy image array for image
         :param float emin_keV: minimum energy
         :param float emax_keV: maximum energy
         :param rmf: response matrix file
         :param arf: ancillary response matrix file
         :param pixsize_as: size of pixels in arcsec
-        :param expmaps: list or dict of numpy exposure map arrays (different components can use different exposure maps, if needed)
+        :param expmaps: dict of numpy exposure map arrays (different components can use different exposure maps, if needed)
         :param mask: numpy mask array (None means no mask)
         :param psf: PSF object
         :param origin: position (y,x) coordinates are measured relative to (should be same position in all images)
         """
 
-        self.imgid = imgid
+        self.img_id = img_id
         self.emin_keV = emin_keV
         self.emax_keV = emax_keV
         self.rmf = rmf
         self.arf = arf
-        self.imagearr = imagearr.astype(N.float32)
         self.shape = imagearr.shape
         self.pixsize_as = pixsize_as
         self.invpixsize = 1/pixsize_as
 
+        # copy image
+        self.imagearr = utils.empty_aligned(self.shape, dtype=N.float32)
+        self.imagearr[:,:] = imagearr
+
         # mask should be -1 (included) or 0 (excluded), for use in simd
+        self.mask = utils.zeros_aligned(self.shape, dtype=N.int32)
         if mask is None:
-            self.mask = N.empty(self.shape, dtype=N.int32)
             self.mask.fill(-1)
         else:
-            self.mask = N.where(mask != 0, -1, 0).astype(N.int32)
+            self.mask[:,:] = N.where(mask, -1, 0)
 
         self.expmaps = expmaps
-        self.psf = psf
+
+        if psf is None:
+            self.psf = None
+        else:
+            # copy so image-specific parts are kept separate
+            self.psf = PSF(self.psf)
+            self.psf.matchImage(self.shape, pixsize_as)
+
         self.origin = origin
+
+    def expandArrays(self, shape):
+        """Expand arrays to match shape given.
+
+        (not tested)
+        """
+        temp = utils.zeros_aligned(shape, dtype=N.float32)
+        temp[:self.shape[0],:self.shape[1]] = self.imagearr
+        self.imagearr = temp
+
+        temp = utils.zeros_aligned(shape, dtype=N.int32)
+        temp[:self.shape[0],:self.shape[1]] = self.mask
+        self.mask = temp
+
+        if self.expmaps is not None:
+            for key in self.expmaps:
+                temp = utils.zeros_aligned(shape, dtype=N.float32)
+                temp[:self.shape[0],:self.shape[1]] = self.expmaps[key]
+                self.expmaps[key] = temp
+
+        self.shape = shape
+
+class PSF:
+    """PSF modelling class."""
+
+    def __init__(self, img, pixsize_as=1.0, origin=None):
+        """
+        :param img: 2D PSF image
+        :param pixsize_as: size of pixels in arcsec
+        :param origin: (y, x) origin of PSF centre
+        """
+        self.img = img
+        if origin is None:
+            self.origin = img.shape[0]/2, img.shape[1]/2
+        else:
+            self.origin = origin
+        self.pixsize_as = pixsize_as
+
+        self.resample = None
+        self.fft = None
+
+    def copy(self):
+        return PSF(
+            N.array(self.img),
+            pixsize_as=self.pixsize_as,
+            origin=self.origin,
+        )
+
+    def matchImage(self, imgshape, img_pixsize_as):
+        """Adjust PSF to different pixel size and image shape."""
+
+        pixratio = img_pixsize_as / self.pixsize_as
+        img_shape = self.img.shape
+
+        # resample input image to output image and pixel size
+        iy, ix = N.indices(imgshape)
+        # we move the origin in the input to the corner in the output
+        iy = N.where(iy>imgshape[0]/2, iy-imgshape[0], iy)
+        ix = N.where(ix>imgshape[1]/2, ix-imgshape[1], ix)
+        iy = (iy*pixratio + self.origin[0]).astype(N.int32)
+        ix = (ix*pixratio + self.origin[1]).astype(N.int32)
+        # clip to edge
+        ix = N.where((ix>=0) & (ix<img_shape[1]), ix, -1)
+        iy = N.where((iy>=0) & (iy<img_shape[0]), iy, -1)
+        # lookup in original image
+        img = self.img[iy, ix]
+        # set out of bounds indices to 0
+        img[(iy==-1) | (ix==-1)] = 0
+        img /= img.sum()
+
+        self.resample = img.astype(N.float32)
+        self.fft = utils.run_rfft2(self.resample)
+
+    def applyTo(self, inimg, minval=1e-10):
+        """Convolve image with PSF."""
+
+        imgfft = utils.run_rfft2(inimg)
+        imgfft *= self.fft
+        convolved = utils.run_irfft2(imgfft)
+        # make sure convolution is positive
+        N.clip(convolved, minval, None, out=convolved)
+        return convolved

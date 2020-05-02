@@ -24,6 +24,10 @@ import uuid
 import numpy as N
 from scipy.special import gammaln
 
+import pyfftw
+from pyfftw import zeros_aligned, ones_aligned, empty_aligned
+pyfftw.interfaces.cache.enable()
+
 def uprint(*args, **argsv):
     """Unbuffered print."""
     print(*args, **argsv)
@@ -154,3 +158,11 @@ class AtomicWriteFile(object):
     
 def gehrels(c):
     return 1. + N.sqrt(c + 0.75)
+
+def run_rfft2(x):
+    """Call numpy or pyfftw for rfft2."""
+    return pyfftw.interfaces.numpy_fft.rfft2(x)
+
+def run_irfft2(x):
+    """Call numpy or pyfftw for irfft2."""
+    return pyfftw.interfaces.numpy_fft.irfft2(x)

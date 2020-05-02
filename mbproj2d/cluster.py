@@ -15,24 +15,23 @@
 
 import numpy as N
 
-from .model import ObjModelBase
+from .model import SrcModelBase
 from .ratecalc import RateCalc
 from .profile import Radii
 from .fast import addSBToImg
 
-class ClusterNonHydro(ObjModelBase):
+class ClusterNonHydro(SrcModelBase):
 
     def __init__(
             self, name, pars, images,
             cosmo=None,
             NH_1022pcm2=0.,
             ne_prof=None, T_prof=None, Z_prof=None,
-            expmap=None,
             maxradius_kpc=3000.,
             cx=0., cy=0.
     ):
-        ObjModelBase.__init__(
-            self, name, pars, images, expmap=expmap, cx=cx, cy=cy)
+        SrcModelBase.__init__(
+            self, name, pars, images, cx=cx, cy=cy)
 
         self.cosmo = cosmo
         self.NH_1022pcm2 = NH_1022pcm2
@@ -84,15 +83,9 @@ class ClusterNonHydro(ObjModelBase):
             sb_arr = self.pixsize_Radii[pixsize_as].project(emiss_arr_pkpc3)
             sb_arr *= (self.cosmo.as_kpc*pixsize_as)**2
 
-            if self.expmap is None:
-                # inefficient
-                expmap = N.ones(img.shape, dtype=N.float32)
-            else:
-                expmap = img.expmaps[self.expmap]
-
             # compute centre in pixels
-            pcy = cy_as*img.invpixsize + img.origin[0]
-            pcx = cx_as*img.invpixsize + img.origin[1]
+            pix_cy = cy_as*img.invpixsize + img.origin[0]
+            pix_cx = cx_as*img.invpixsize + img.origin[1]
 
             # add SB profile to image
-            addSBToImg(1, sb_arr, pcx, pcy, expmap, imgarr)
+            addSBToImg(1, sb_arr, pix_cx, pix_cy, imgarr)

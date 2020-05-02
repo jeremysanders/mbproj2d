@@ -81,7 +81,6 @@ void project(const float rbin, const int numbins,
 void add_sb_prof(const float rbin, const int nbins, const float *sb,
 		 const float xc, const float yc,
 		 const int xw, const int yw,
-		 const float* expmap,
 		 float *img)
 {
   // copy to ensure outer bin is 0
@@ -107,7 +106,7 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
 
 	const float val = cpy_sb[i0]*w0 + cpy_sb[i1]*w1;
 
-	img[y*xw+x] += val * expmap[y*xw+x];
+	img[y*xw+x] += val;
       }
 }
 

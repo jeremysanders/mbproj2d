@@ -17,54 +17,100 @@ import math
 import numpy as N
 
 from .param import Param, PriorGaussian
+from . import utils
 
 class TotalModel:
+    """Combined model for data."""
 
-    def __init__(self, pars, images, objmodels=None, backmodels=None):
-        self.pars = pars
-        self.images = images
-        self.objmodels = [] if objmodels is None else objmodels
-        self.backmodels = [] if backmodels is None else backmodels
-
-    def compute(self):
-        """Compute model images given input
-
-        Returns (objimagearrlist, bgimgarrlist)
+    def __init__(
+            self, pars, images, src_models=None, src_expmap=None,
+            back_models=None):
+        """
+        :param pars: Params object
+        :param images: list of Image objects
+        :param src_models: list of source models
+        :param src_expmap: name of exposure map to use for sources
+        :param back_models: list of background models
         """
 
-        objimgarrs = [
-            N.zeros(image.shape, dtype=N.float32)
+        self.pars = pars
+        self.images = images
+        self.src_models = src_models
+        self.src_expmap = src_expmap
+        self.back_models = back_models
+
+    def compute(
+            self,
+            apply_psf=True, apply_expmap=True,
+            apply_src=True, apply_back=True):
+        """Return a list of image arrays for the models.
+        :param apply_psf: whether to convolve with PSF
+        :param apply_expmap: whether to multiply by exposure map
+        :param apply_src: apply source models
+        :param apply_back: apply background models
+        """
+
+        # output images for each Image
+        imgarrs = [
+            utils.zeros_aligned(image.shape, dtype=N.float32)
             for image in self.images
         ]
-        for model in self.objmodels:
-            model.compute(objimgarrs)
 
-        bgimgarrs = [
-            N.zeros(image.shape, dtype=N.float32)
-            for image in self.images
-        ]
-        for model in self.backmodels:
-            model.compute(bgimgarrs)
+        # add the models to the image
+        if self.src_models and apply_src:
+            # actual model computation
+            for model in self.src_models:
+                model.compute(imgarrs)
 
-        return objimgarrs, bgimgarrs
+            # convolve with PSF
+            if apply_psf:
+                for imgarr, image in zip(imgarrs, self.images):
+                    if image.psf is not None:
+                        image.psf.applyTo(imgarr)
+
+            # apply exposure map
+            if apply_expmap and self.src_expmap is not None:
+                for imgarr, image in zip(imgarrs, self.images):
+                    imgarr *= image.expmaps[self.src_expmap]
+
+        # add on background
+        if self.back_models and apply_back:
+            for model in self.back_models:
+                model.compute(imgarrs)
+
+        return imgarrs
 
     def prior(self):
-        """Given parameters, compute prior."""
+        """Given parameters, compute prior.
 
-        total = 0
-        for model in self.objmodels:
-            total += model.prior()
-        for model in self.backmodels:
-            total += model.prior()
+        This includes the contribution from parameters, the object
+        models and background models.
+        """
+
+        total = self.pars.calcPrior()
+        if self.src_models:
+            for model in self.src_models:
+                total += model.prior()
+        if self.back_models:
+            for model in self.back_models:
+                total += model.prior()
         return total
 
 class BackModelBase:
     """Base background model. Does nothing."""
 
-    def __init__(self, name, pars, images):
+    def __init__(self, name, pars, images, expmap=None):
+        """
+        :param name: name of model
+        :param pars: Params() object
+        :param images: list of Image() objects
+        :param expmap: exposure map name to lookup in Image
+        """
+
         self.name = name
         self.pars = pars
         self.images = images
+        self.expmap = expmap
 
     def compute(self, imgarrs):
         pass
@@ -89,7 +135,7 @@ class BackModelFlat(BackModelBase):
         :param bool normarea: normalise background to per sq arcsec
         :param expmap: name or index of exposure map to use (if any)
         """
-        BackModelBase.__init__(self, name, pars, images)
+        BackModelBase.__init__(self, name, pars, images, expmap=expmap)
         for image in images:
             pars['%s_%s' % (name, image.imgid)] = Param(0., minval=0.)
         pars['%s_scale' % name] = Param(
@@ -110,14 +156,14 @@ class BackModelFlat(BackModelBase):
                 v *= image.expmaps[self.expmap]
             imgarr += v*scale
 
-class ObjModelBase:
+class SrcModelBase:
+    """Base class for source models."""
 
-    def __init__(self, name, pars, images, expmap=None, cx=0., cy=0.):
+    def __init__(self, name, pars, images, cx=0., cy=0.):
         """
         :param name: name of model
         :param pars: dict of parameters
         :param images: list of data.Image objects
-        :param expmap: name or index of exposure map to use (if any)
         :param cx: initial centre x coordinate
         :param cy: initial centre y coordinate
         """
@@ -125,7 +171,6 @@ class ObjModelBase:
         self.name = name
         self.pars = pars
         self.images = images
-        self.expmap = expmap
 
         # position of source
         pars['%s_cx' % name] = Param(cx)
