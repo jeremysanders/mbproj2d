@@ -137,7 +137,7 @@ class BackModelFlat(BackModelBase):
         """
         BackModelBase.__init__(self, name, pars, images, expmap=expmap)
         for image in images:
-            pars['%s_%s' % (name, image.imgid)] = Par(0., minval=0.)
+            pars['%s_%s' % (name, image.img_id)] = Par(0., minval=0.)
         pars['%s_scale' % name] = Par(
             1.0, prior=PriorGaussian(1.0, 0.05), frozen=True)
         self.normarea = normarea
@@ -147,7 +147,7 @@ class BackModelFlat(BackModelBase):
     def compute(self, imgarrs):
         scale = self.pars['%s_scale' % self.name].v
         for image, imgarr in zip(self.images, imgarrs):
-            v = self.pars['%s_%s' % (self.name, image.imgid)].v
+            v = self.pars['%s_%s' % (self.name, image.img_id)].v
             if self.log:
                 v = math.exp(v)
             if self.normarea:
