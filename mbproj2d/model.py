@@ -136,7 +136,10 @@ class BackModelFlat(BackModelBase):
         """
         BackModelBase.__init__(self, name, pars, images, expmap=expmap)
         for image in images:
-            pars['%s_%s' % (name, image.img_id)] = Par(0., minval=0.)
+            if log:
+                pars['%s_%s' % (name, image.img_id)] = Par(0.)
+            else:
+                pars['%s_%s' % (name, image.img_id)] = Par(0., minval=0.)
         pars['%s_scale' % name] = Par(
             1.0, prior=PriorGaussian(1.0, 0.05), frozen=True)
         self.normarea = normarea

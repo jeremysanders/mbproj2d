@@ -51,13 +51,13 @@ class Fit:
     def printHeader(self):
         """Show line with list of thawed/non-linked params."""
         keys = ['Like', '(Prior)'] + self.pars.freeKeys()
-        out = ['%11s' % k for k in keys]
+        out = ['%12s' % k for k in keys]
         utils.uprint(' '.join(out))
 
     def printPars(self, like):
         """Print thawed/non-linked parameters to output on single line."""
         vals = [like.total, like.prior] + self.pars.freeVals()
-        out = [('%11g' % v) for v in vals]
+        out = [('%12g' % v) for v in vals]
         utils.uprint(' '.join(out))
 
     def run(
@@ -76,7 +76,6 @@ class Fit:
 
         initlike = Likelihood(self.images, self.model, self.pars)
         showlike = [initlike.total]
-        print(showlike)
 
         if verbose:
             self.printHeader()

@@ -22,3 +22,4 @@ from .cosmo import *
 from .profile import *
 from .fit import *
 from .utils import *
+from .mcmc import *

@@ -16,6 +16,8 @@ Requirements:
  - scipy
  - cython
  - pyfftw
+ - h5py
+ - emcee
 
 Usage notes:
 
