@@ -13,11 +13,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import scipy.optimize
+
 from . import utils
 from . import fast
 
 class Likelihood:
-    """A likelihood for the model and data."""
+    """Calculate a likelihood for the model and data.
+
+    Members:
+    - prior  - prior value
+    - images - list of likelihoods for each input image
+    - total  - combined likelihood
+    """
 
     def __init__(self, images, model, pars):
         self.prior = model.prior(pars)
@@ -41,31 +49,72 @@ class Fit:
         self.pars = pars
 
     def printHeader(self):
-        keys = ['Like', 'Prior'] + self.pars.freeKeys()
+        """Show line with list of thawed/non-linked params."""
+        keys = ['Like', '(Prior)'] + self.pars.freeKeys()
         out = ['%11s' % k for k in keys]
         utils.uprint(' '.join(out))
 
     def printPars(self, like):
-        """Print parameters to output."""
-        vals = [like.total, like.prior]
-        out = [('%11g' % v.val) for k, v in sorted(self.pars.items())]
+        """Print thawed/non-linked parameters to output on single line."""
+        vals = [like.total, like.prior] + self.pars.freeVals()
+        out = [('%11g' % v) for v in vals]
         utils.uprint(' '.join(out))
 
-    def doFit(self, verbose=True):
-        initpars = self.pars.freeVals()
+    def run(
+            self,
+            verbose=True, sigdelta=0.01, maxiter=10,
+            methods=('Nelder-Mead', 'Powell'),
+    ):
+        """
+        :param verbose: show fit progress
+        :param sigdelta: what is a significant change in fit statistic
+        :param maxiter: fit a maximum number of times with improvement before exiting
+        :param methods: iterate through these fitting methods to look for improvement
 
-        initlike = self.computeLikelihood()
-        minlike = [initlike.total]
+        Returns (fit_like, success) where success indicates less than maximum number of iterations were done.
+        """
+
+        initlike = Likelihood(self.images, self.model, self.pars)
+        showlike = [initlike.total]
+        print(showlike)
 
         if verbose:
             self.printHeader()
             self.printPars(initlike)
 
+        initlike = initlike.total
+
         def fitfunc(p):
             self.pars.setFree(p)
             like = Likelihood(self.images, self.model, self.pars)
-            if like.total > minlike[0]:
-                minlike[0] = like.total
-                if verbose:
-                    self.printPars(like)
+            if verbose and like.total > showlike[0]+sigdelta:
+                showlike[0] = like.total
+                self.printPars(like)
             return -like.total
+
+        success = True
+        fpars = self.pars.freeVals()
+        for i in range(maxiter):
+            if verbose:
+                utils.uprint('Fitting (iteration %i)' % (i+1))
+
+            for method in methods:
+                fitpars = scipy.optimize.minimize(
+                    fitfunc, fpars, method=method)
+                fpars = fitpars.x
+                flike = -fitpars.fun
+
+            if abs(initlike-flike) < sigdelta:
+                # fit quality stayed the same
+                break
+            initlike = flike
+        else:
+            if verbose:
+                utils.uprint(
+                    'Exiting after maximum of %i iterations' % maxiter)
+            success = False
+
+        self.pars.setFree(fpars)
+        if verbose:
+            utils.uprint('Done (like=%g)' % flike)
+        return flike, success
