@@ -50,9 +50,8 @@ class Radii:
 class ProfileBase:
     def __init__(self, name, pars):
         self.name = name
-        self.pars = pars
 
-    def compute(self, radii):
+    def compute(self, pars, radii):
         """Compute profile at centres of bins, given edges."""
         return N.zeros(radii.num)
 
@@ -66,8 +65,8 @@ class ProfileFlat(ProfileBase):
         pars[name] = Par(defval)
         self.log = log
 
-    def compute(self, radii):
-        v = self.pars[self.name].v
+    def compute(self, pars, radii):
+        v = pars[self.name].v
         if self.log:
             v = math.exp(v)
         return N.full(radii.num, v)
@@ -89,7 +88,7 @@ class ProfileBinned(ProfileBase):
 
     def compute(self, radii):
         pvals = N.array([
-            self.pars['%s_%03i' % (self.name, i)].v
+            pars['%s_%03i' % (self.name, i)].v
             for i in range(radii.num)
             ])
         if self.log:
@@ -119,9 +118,9 @@ class ProfileInterpol(ProfileBase):
         self.rcent_logkpc = N.log(rcent_kpc)
         self.log = log
 
-    def compute(self, radii):
+    def compute(self, pars, radii):
         pvals = N.array([
-            self.pars['%s_%03i' % (self.name, i)].v
+            pars['%s_%03i' % (self.name, i)].v
             for i in range(radii.num)
             ])
         vals = N.interp(radii.cent_logkpc, self.rcent_logkpc, pvals)
@@ -163,10 +162,10 @@ class ProfileBeta(ProfileBase):
         pars['%s_beta' % name] = Par(2/3, minval=0., maxval=4.)
         pars['%s_logrc' % name] = Par(math.log(300), minval=-2, maxval=8.5)
 
-    def compute(self, radii):
-        n0 = math.exp(self.pars['%s_logn0' % self.name].v)
-        beta = self.pars['%s_beta' % self.name].v
-        rc_kpc = math.exp(self.pars['%s_logrc' % self.name].v)
+    def compute(self, pars, radii):
+        n0 = math.exp(pars['%s_logn0' % self.name].v)
+        beta = pars['%s_beta' % self.name].v
+        rc_kpc = math.exp(pars['%s_logrc' % self.name].v)
 
         prof = _betaprof(
             radii.inner_kpc, radii.outer_kpc,
@@ -203,11 +202,11 @@ class ProfileVikhDensity(ProfileBase):
             pars['%s_beta_2' % name] = Par(0.5, minval=0., maxval=4.)
             pars['%s_logrc_2' % name] = Par(math.log(50), minval=-2, maxval=8.5)
 
-    def compute(self, radii):
-        n0_1 = math.exp(self.pars['%s_logn0_1' % self.name].v)
-        beta_1 = self.pars['%s_beta_1' % self.name].v
-        rc_1 = math.exp(self.pars['%s_logrc_1' % self.name].v)
-        alpha = self.pars['%s_alpha' % self.name].v
+    def compute(self, pars, radii):
+        n0_1 = math.exp(pars['%s_logn0_1' % self.name].v)
+        beta_1 = pars['%s_beta_1' % self.name].v
+        rc_1 = math.exp(pars['%s_logrc_1' % self.name].v)
+        alpha = pars['%s_alpha' % self.name].v
 
         r = radii.cent_kpc
         retn_sqd = (
@@ -217,16 +216,16 @@ class ProfileVikhDensity(ProfileBase):
             )
 
         if self.mode in ('single', 'double'):
-            r_s = math.exp(self.pars['%s_logr_s' % self.name].v)
-            epsilon = self.pars['%s_epsilon' % self.name].v
-            gamma = self.pars['%s_gamma' % self.name].v
+            r_s = math.exp(pars['%s_logr_s' % self.name].v)
+            epsilon = pars['%s_epsilon' % self.name].v
+            gamma = pars['%s_gamma' % self.name].v
 
             retn_sqd /= (1+(r/r_s)**gamma)**(epsilon/gamma)
 
         if self.mode == 'double':
-            n0_2 = math.exp(self.pars['%s_logn0_2' % self.name].v)
-            rc_2 = math.exp(self.pars['%s_logrc_2' % self.name].v)
-            beta_2 = self.pars['%s_beta_2' % self.name].v
+            n0_2 = math.exp(pars['%s_logn0_2' % self.name].v)
+            rc_2 = math.exp(pars['%s_logrc_2' % self.name].v)
+            beta_2 = pars['%s_beta_2' % self.name].v
 
             retn_sqd += n0_2**2 / (1 + r**2/rc_2**2)**(3*beta_2)
 

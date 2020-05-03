@@ -14,6 +14,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import numpy as N
+from scipy.special import gammaln
 
 from . import utils
 from . import fast

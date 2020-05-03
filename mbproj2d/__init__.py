@@ -20,4 +20,5 @@ from .model import *
 from .cluster import *
 from .cosmo import *
 from .profile import *
+from .fit import *
 from .utils import *

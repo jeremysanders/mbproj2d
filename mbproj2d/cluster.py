@@ -56,20 +56,20 @@ class ClusterNonHydro(SrcModelBase):
                 cosmo, img.rmf, img.arf, img.emin_keV, img.emax_keV,
                 NH_1022pcm2)
 
-    def compute(self, imgarrs):
+    def compute(self, pars, imgarrs):
         """Add cluster model to images."""
 
-        cy_as = self.pars['%s_cy' % self.name].v
-        cx_as = self.pars['%s_cx' % self.name].v
+        cy_as = pars['%s_cy' % self.name].v
+        cx_as = pars['%s_cx' % self.name].v
 
         # get plasma profiles for each pixel size
         ne_arr = {}
         T_arr = {}
         Z_arr = {}
         for pixsize, radii in self.pixsize_Radii.items():
-            ne_arr[pixsize] = self.ne_prof.compute(radii)
-            T_arr[pixsize] = self.T_prof.compute(radii)
-            Z_arr[pixsize] = self.Z_prof.compute(radii)
+            ne_arr[pixsize] = self.ne_prof.compute(pars, radii)
+            T_arr[pixsize] = self.T_prof.compute(pars, radii)
+            Z_arr[pixsize] = self.Z_prof.compute(pars, radii)
 
         # add profiles to each image
         for img, imgarr in zip(self.images, imgarrs):

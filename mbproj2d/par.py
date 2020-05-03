@@ -16,12 +16,17 @@
 import math
 import numpy as N
 
+from . import utils
+
 class PriorBase:
     def calculate(self, val):
         return 0
 
     def __repr__(self):
         return '<PriorBase: None>'
+
+    def copy(self):
+        return PriorBase()
 
 class PriorFlat(PriorBase):
     def __init__(self, minval, maxval):
@@ -38,6 +43,9 @@ class PriorFlat(PriorBase):
     def __repr__(self):
         return '<PriorFlat: minval=%s, maxval=%s>' % (
             repr(self.minval), repr(self.maxval))
+
+    def copy(self):
+        return PriorFlat(self.minval, self.maxval)
 
 class PriorGaussian(PriorBase):
     def __init__(self, mu, sigma):
@@ -59,17 +67,20 @@ class PriorGaussian(PriorBase):
         return '<PriorGaussian: mu=%s, sigma=%s>' % (
             self.mu, self.sigma)
 
+    def copy(self):
+        return PriorGaussian(self.mu, self.sigma)
+
 class Par:
     """Parameter for model."""
 
     def __init__(
-            self, val, prior=None, frozen=False, transform=None, linked=None,
+            self, val, prior=None, frozen=False, xform=None, linked=None,
             minval=-N.inf, maxval=N.inf):
         """
         :param float val: parameter value
         :param prior: prior object or None for flat prior
         :param frozen: whether to leave parameter frozen
-        :param transform: function to transform value for model or 'exp' for an exp(x) scaling
+        :param xform: function to transform value for model or 'exp' for an exp(x) scaling
         :param linked: another Par object to link this parameter to another
         :param float minval: minimum value for default flat prior
         :param float maxval: maximum value for default flat prior
@@ -83,12 +94,12 @@ class Par:
         else:
             self.prior = prior
 
-        if transform is None:
-            self.transform = None
-        elif transform == 'exp':
-            self.transform = lambda x: math.exp(x)
+        if xform is None:
+            self.xform = None
+        elif xform == 'exp':
+            self.xform = lambda x: math.exp(x)
         else:
-            self.transform = transform
+            self.xform = xform
 
         self.linked = linked
 
@@ -101,10 +112,10 @@ class Par:
         else:
             val = self.linked.val
 
-        if self.transform is None:
+        if self.xform is None:
             return val
         else:
-            return self.transform(val)
+            return self.xform(val)
 
     def isFree(self):
         """Is the parameter free?"""
@@ -124,14 +135,21 @@ class Par:
             ]
         else:
             p = [
-                'val=%.3g' % self.val,
+                'val=%.5g' % self.val,
                 'frozen=%s' % self.frozen,
             ]
         p.append('prior=%s' % repr(self.prior))
-        if self.transform is not None:
-            p.append('transform=%s' % self.transform)
+        if self.xform is not None:
+            p.append('xform=%s' % self.xform)
 
         return '<Par: %s>' % (', '.join(p))
+
+    def copy(self):
+        # linking is not deep copied: this is fixed by Pars below
+        return Par(
+            self.val, prior=self.prior.copy(), frozen=self.frozen,
+            linked=self.linked,
+            xform=self.xform)
 
 class Pars(dict):
     """Parameters for a model. Based on a dict.
@@ -171,3 +189,41 @@ class Pars(dict):
         for key in sorted(self):
             out.append('%s: %s' % (repr(key), repr(self[key])))
         return '{%s}' % (', '.join(out))
+
+    def show(self):
+        """Print out parameters."""
+        vtok = {v: k for k, v in self.items()}
+        for k, v in sorted(self.items()):
+            out = [
+                '%16s:' % k,
+            ]
+            if v.linked:
+                out += [
+                    '%12s' % vtok[v.linked],
+                    'linked'
+                ]
+            else:
+                out += [
+                    '%12g' % v.val,
+                    'frozen' if v.frozen else 'thawed',
+                ]
+
+            out.append('%45s' % repr(v.prior))
+            if v.xform:
+                out.append('xform=%s' % repr(v.xform))
+
+            utils.uprint(' '.join(out))
+
+    def copy(self):
+        """Return a deep copy of self."""
+        newpars = Pars()
+        for k, v in self.items():
+            newpars[k] = v.copy()
+
+        # fixup links to point to new parameters.
+        vtok = {v: k for k, v in self.items()}
+        for k, v in newpars.items():
+            if v.linked is not None:
+                v.linked = newpars[vtok[v.linked]]
+
+        return newpars

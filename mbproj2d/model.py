@@ -26,14 +26,13 @@ class TotalModel:
             self, pars, images, src_models=None, src_expmap=None,
             back_models=None):
         """
-        :param pars: Pars object
+        :param pars: Pars object (currently unused)
         :param images: list of Image objects
         :param src_models: list of source models
         :param src_expmap: name of exposure map to use for sources
         :param back_models: list of background models
         """
 
-        self.pars = pars
         self.images = images
         self.src_models = src_models
         self.src_expmap = src_expmap
@@ -41,6 +40,7 @@ class TotalModel:
 
     def compute(
             self,
+            pars,
             apply_psf=True, apply_expmap=True,
             apply_src=True, apply_back=True):
         """Return a list of image arrays for the models.
@@ -60,7 +60,7 @@ class TotalModel:
         if self.src_models and apply_src:
             # actual model computation
             for model in self.src_models:
-                model.compute(imgarrs)
+                model.compute(pars, imgarrs)
 
             # convolve with PSF
             if apply_psf:
@@ -76,24 +76,24 @@ class TotalModel:
         # add on background
         if self.back_models and apply_back:
             for model in self.back_models:
-                model.compute(imgarrs)
+                model.compute(pars, imgarrs)
 
         return imgarrs
 
-    def prior(self):
+    def prior(self, pars):
         """Given parameters, compute prior.
 
         This includes the contribution from parameters, the object
         models and background models.
         """
 
-        total = self.pars.calcPrior()
+        total = pars.calcPrior()
         if self.src_models:
             for model in self.src_models:
-                total += model.prior()
+                total += model.prior(pars)
         if self.back_models:
             for model in self.back_models:
-                total += model.prior()
+                total += model.prior(pars)
         return total
 
 class BackModelBase:
@@ -108,14 +108,13 @@ class BackModelBase:
         """
 
         self.name = name
-        self.pars = pars
         self.images = images
         self.expmap = expmap
 
-    def compute(self, imgarrs):
+    def compute(self, pars, imgarrs):
         pass
 
-    def prior(self):
+    def prior(self, pars):
         return 0
 
 class BackModelFlat(BackModelBase):
@@ -144,10 +143,10 @@ class BackModelFlat(BackModelBase):
         self.log = log
         self.expmap = expmap
 
-    def compute(self, imgarrs):
-        scale = self.pars['%s_scale' % self.name].v
+    def compute(self, pars, imgarrs):
+        scale = pars['%s_scale' % self.name].v
         for image, imgarr in zip(self.images, imgarrs):
-            v = self.pars['%s_%s' % (self.name, image.img_id)].v
+            v = pars['%s_%s' % (self.name, image.img_id)].v
             if self.log:
                 v = math.exp(v)
             if self.normarea:
@@ -169,15 +168,14 @@ class SrcModelBase:
         """
 
         self.name = name
-        self.pars = pars
         self.images = images
 
         # position of source
         pars['%s_cx' % name] = Par(cx)
         pars['%s_cy' % name] = Par(cy)
 
-    def compute(self, imgarrs):
+    def compute(self, pars, imgarrs):
         pass
 
-    def prior(self):
+    def prior(self, pars):
         return 0
