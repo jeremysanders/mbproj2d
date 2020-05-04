@@ -44,6 +44,11 @@ public:
     return v[0]+v[1]+v[2]+v[3]+v[4]+v[5]+v[6]+v[7];
   }
 
+  void store(float* out)
+  {
+    _mm256_storeu_ps(out, v);
+  }
+
   __m256 v;
 };
 
@@ -80,6 +85,16 @@ inline VecF log(const VecF& a)
 inline VecF exp(const VecF& a)
 {
   return exp256_ps(a.v);
+}
+
+inline VecF min(const VecF& a, const VecF& b)
+{
+  return _mm256_min_ps(a.v, b.v);
+}
+
+inline VecF max(const VecF& a, const VecF& b)
+{
+  return _mm256_max_ps(a.v, b.v);
 }
 
 ///////////////////////////////

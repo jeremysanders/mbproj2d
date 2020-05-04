@@ -235,3 +235,43 @@ void resamplePSF(int psf_nx, int psf_ny,
     for(int x=0; x<img_nx; ++x)
       img[ y*img_nx + x ] /= img_tot;
 }
+
+// faster version of clipping function
+void clipMin(float minval, int ny, int nx, float* arr)
+{
+  int ntot = nx*ny;
+
+  VecF cmp(minval);
+  while(ntot >= int(VecF::nelem))
+    {
+      VecF val(arr);
+      VecF minv(min(val, cmp));
+      minv.store(arr);
+
+      arr += VecF::nelem;
+      ntot -= int(VecF::nelem);
+    }
+
+  for(int i=0; i<ntot; ++i)
+    arr[i] = min(arr[i], minval);
+}
+
+// faster version of clipping function
+void clipMax(float maxval, int ny, int nx, float* arr)
+{
+  int ntot = nx*ny;
+
+  VecF cmp(maxval);
+  while(ntot >= int(VecF::nelem))
+    {
+      VecF val(arr);
+      VecF maxv(max(val, cmp));
+      maxv.store(arr);
+
+      arr += VecF::nelem;
+      ntot -= int(VecF::nelem);
+    }
+
+  for(int i=0; i<ntot; ++i)
+    arr[i] = max(arr[i], maxval);
+}

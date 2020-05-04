@@ -22,6 +22,8 @@ cdef extern from "project_cc.hh":
                      int img_nx, int img_ny,
                      float img_pixsize,
                      float *img)
+    void clipMin(float minval, int ny, int nx, float* arr)
+    void clipMax(float maxval, int ny, int nx, float* arr)
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -42,22 +44,18 @@ def projectEmissivity(float rbin, np.ndarray emiss):
 # note: final element in SB profile should be zero
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def addSBToImg(float rbin, np.ndarray sb, float xc, float yc,
-               np.ndarray img):
-    assert sb.dtype == np.float32
-    assert img.dtype == np.float32
+def addSBToImg(float rbin, float[::1] sb, float xc, float yc,
+               float[:,::1] img):
 
-    cdef float[::1] sb_view = sb
-    cdef float[:,::1] img_view = img
     cdef int numbins, xw, yw
 
-    numbins = sb_view.shape[0]
-    yw = img_view.shape[0]
-    xw = img_view.shape[1]
+    numbins = sb.shape[0]
+    yw = img.shape[0]
+    xw = img.shape[1]
 
     add_sb_prof(
-        rbin, numbins, &sb_view[0], xc, yc, xw, yw,
-        &img_view[0,0]
+        rbin, numbins, &sb[0], xc, yc, xw, yw,
+        &img[0,0]
     )
 
 @cython.boundscheck(False)
@@ -78,43 +76,42 @@ def calcPoissonLogLikelihood(np.ndarray data, np.ndarray model):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def calcPoissonLogLikelihoodMasked(np.ndarray data, np.ndarray model, np.ndarray mask):
-    assert data.dtype == np.float32
-    assert model.dtype == np.float32
-    assert mask.dtype == np.int32
+def calcPoissonLogLikelihoodMasked(float[:,::1] data, float[:,::1] model, int[:,::1] mask):
+
     assert data.shape[0] == model.shape[0]
     assert mask.shape[0] == model.shape[0]
     assert data.shape[1] == model.shape[1]
     assert mask.shape[1] == model.shape[1]
 
-    cdef float[:,::1] data_view = data
-    cdef float[:,::1] model_view = model
-    cdef int[:,::1] mask_view = mask
     cdef int nelem
-
     nelem = model.shape[0]*model.shape[1]
-    return logLikelihoodAVXMasked(nelem, &data_view[0,0], &model_view[0,0], &mask_view[0,0])
+    return logLikelihoodAVXMasked(nelem, &data[0,0], &model[0,0], &mask[0,0])
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def resamplePSFImage(np.ndarray psfimg,
-                     np.ndarray outimg,
+def resamplePSFImage(float[:,::1] psfimg,
+                     float[:,::1] outimg,
                      float psf_pixsize=1,
                      float img_pixsize=1,
                      float psf_ox=0,
                      float psf_oy=0,
                      int oversample=16):
-    assert psfimg.dtype == np.float32
-    assert outimg.dtype == np.float32
 
-    cdef float[:,::1] psf_view = psfimg
-    cdef float[:,::1] out_view = outimg
-
-    resamplePSF(psf_view.shape[1], psf_view.shape[0],
+    resamplePSF(psfimg.shape[1], psfimg.shape[0],
                 psf_pixsize,
                 psf_ox, psf_oy,
-                &psf_view[0,0],
+                &psfimg[0,0],
                 oversample,
-                out_view.shape[1], out_view.shape[0],
+                outimg.shape[1], outimg.shape[0],
                 img_pixsize,
-                &out_view[0,0])
+                &outimg[0,0])
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def clip2DMin(float[:,::1] img, float val):
+    clipMin(val, img.shape[0], img.shape[1], &img[0,0])
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def clip2DMax(float[:,::1] img, float val):
+    clipMax(val, img.shape[0], img.shape[1], &img[0,0])

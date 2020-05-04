@@ -146,5 +146,5 @@ class PSF:
         imgfft *= self.fft
         convolved = utils.run_irfft2(imgfft)
         # make sure convolution is positive
-        N.clip(convolved, minval, None, out=convolved)
+        fast.clip2DMax(convolved, minval)
         inimg[:,:] = convolved

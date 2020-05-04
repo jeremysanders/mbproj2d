@@ -22,4 +22,7 @@ void resamplePSF(int psf_nx, int psf_ny,
                  float img_pixsize,
                  float *img);
 
+void clipMin(float minval, int ny, int nx, float* arr);
+void clipMax(float maxval, int ny, int nx, float* arr);
+
 #endif

@@ -122,7 +122,7 @@ class MCMC:
                 uprint(
                     '  Restarting burn as new best fit has been found '
                     ' (%g > %g)' % (bestlike, initlike) )
-                self.fit.pars.updateFree(bestfit)
+                self.fit.pars.setFree(bestfit)
                 self.sampler.reset()
                 return False
 
