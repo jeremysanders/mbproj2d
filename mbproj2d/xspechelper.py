@@ -111,7 +111,7 @@ class XSpecHelper:
             search = XSpecHelper.specialre.search(line)
         return search.group(1)
 
-    def setModel(self, NH_1022, T_keV, Z_solar, cosmo, ne_cm3):
+    def setModel(self, NH_1022pcm2, T_keV, Z_solar, cosmo, ne_cm3):
         """Make a model with column density, temperature and density given."""
         self.write('model none\n')
         norm = (
@@ -119,14 +119,14 @@ class XSpecHelper:
             self.unitvol_cm3
             )
         self.write('model TBabs(apec) & %g & %g & %g & %g & %g\n' %
-            (NH_1022, T_keV, Z_solar, cosmo.z, norm))
+            (NH_1022pcm2, T_keV, Z_solar, cosmo.z, norm))
         self.throwAwayOutput()
 
     def changeResponse(self, rmf, arf, minenergy_keV, maxenergy_keV):
         """Create a fake spectrum using the response and use energy range given."""
 
         self.setModel(0.1, 1, 1, cosmo.Cosmology(0.1), 1.)
-        self.tempoutput = '/tmp/jsproj_temp_%i.fak' % os.getpid()
+        self.tempoutput = '/tmp/mbproj2d_temp_%i.fak' % os.getpid()
         deleteFile(self.tempoutput)
         self.write('data none\n')
         self.write('fakeit none & %s & %s & y & foo & %s & 1.0\n' %

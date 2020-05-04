@@ -93,6 +93,14 @@ class RateCalc:
                             for Z in (0, 1)
                         ])
                     fcache[self.key] = ZTrates
+                    attrs = fcache[self.key].attrs
+                    attrs['rmf'] = self.rmf
+                    attrs['arf'] = self.arf
+                    attrs['z'] = self.cosmo.z
+                    attrs['NH'] = self.NH_1022pcm2
+                    attrs['minenergy_keV'] = self.minenergy_keV
+                    attrs['maxenergy_keV'] = self.maxenergy_keV
+                    attrs['Tlogvals'] = self.Tlogvals
 
         Ztrates = N.clip(ZTrates, 1e-100, None)
         self.Z0rates = N.log(ZTrates[0])

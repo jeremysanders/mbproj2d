@@ -11,6 +11,7 @@ Copyright Jeremy Sanders (2020)
 License: GPLv3
 
 Requirements:
+ - Recent Intel and AMD x86-64 processors with AVX2 support
  - python3
  - numpy
  - scipy

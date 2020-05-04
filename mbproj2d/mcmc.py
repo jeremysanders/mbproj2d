@@ -54,6 +54,8 @@ class MCMC:
         def likefunc(parvals):
             mcmcpars.setFree(parvals)
             like = Likelihood(fit.images, fit.model, mcmcpars)
+            if not N.isfinite(like.total):
+                return -N.inf
             return like.total
 
         pool = None if processes <= 1 else _MultiProcessPool(likefunc, processes)
