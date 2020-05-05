@@ -13,6 +13,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import sys
 import math
 import numpy as N
 
@@ -190,7 +191,7 @@ class Pars(dict):
             out.append('%s: %s' % (repr(key), repr(self[key])))
         return '{%s}' % (', '.join(out))
 
-    def show(self):
+    def write(self, file=sys.stdout):
         """Print out parameters."""
         vtok = {v: k for k, v in self.items()}
         for k, v in sorted(self.items()):
@@ -212,7 +213,7 @@ class Pars(dict):
             if v.xform:
                 out.append('xform=%s' % repr(v.xform))
 
-            utils.uprint(' '.join(out))
+            utils.uprint(' '.join(out), file=file)
 
     def copy(self):
         """Return a deep copy of self."""

@@ -13,7 +13,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import numpy as N
 import scipy.optimize
+import pickle
 
 from . import utils
 from . import fast
@@ -39,6 +41,10 @@ class Likelihood:
 
         self.images = imagelikes
         self.total = self.prior + sum(imagelikes)
+
+        if not N.isfinite(self.total):
+            # force nan and inf to -inf
+            self.total = -N.inf
 
 class Fit:
     """For fitting a total model to the data."""
@@ -117,3 +123,19 @@ class Fit:
         if verbose:
             utils.uprint('Done (like=%g)' % flike)
         return flike, success
+
+    def save(self, filename):
+        """Saves the current fit state as a Python pickle.
+
+        This includes the input data, parameters and model.
+
+        *Note*: upgrading the source code of mbproj2d or your custom
+        model may prevent the saved file from being loadable
+        again. Take care before relying on this for long term storage.
+
+        :param filename: output filename
+
+        """
+
+        with open(filename, 'wb') as f:
+            pickle.dump(self, f)

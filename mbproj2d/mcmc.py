@@ -19,7 +19,7 @@ import numpy as N
 
 from . import forkparallel
 from .fit import Likelihood
-from .utils import uprint
+from . import utils
 
 class _MultiProcessPool:
     """Internal object to use ForkQueue to evaluate multiple profiles
@@ -36,40 +36,51 @@ class MCMC:
 
     def __init__(
             self, fit,
-            nwalkers=50, processes=1, initspread=0.01):
+            nwalkers=50, processes=1, initspread=0.01, moves=None, verbose=True):
         """
         :param Fit fit: Fit object to use for mcmc
         :param int walkers: number of emcee walkers to use
         :param int processes: number of simultaneous processes to compute likelihoods
         :param float initspread: random Gaussian width added to create initial parameters
+        :param moves: moves parameter to emcee.EnsembleSampler
+        :param verbose: whether to write progress
         """
 
         self.fit = fit
         self.nwalkers = nwalkers
         self.numpars = fit.pars.numFree()
         self.initspread = initspread
+        self.verbose = verbose
 
         mcmcpars = fit.pars.copy()
 
         def likefunc(parvals):
             mcmcpars.setFree(parvals)
             like = Likelihood(fit.images, fit.model, mcmcpars)
-            if not N.isfinite(like.total):
-                return -N.inf
             return like.total
 
         pool = None if processes <= 1 else _MultiProcessPool(likefunc, processes)
 
         # for doing the mcmc sampling
         self.sampler = emcee.EnsembleSampler(
-            nwalkers, self.numpars, likefunc, pool=pool)
+            nwalkers,
+            self.numpars,
+            likefunc,
+            pool=pool,
+            moves=moves
+        )
         # starting point
         self.pos0 = None
 
         # header items to write to output file
         self.header = {
             'burn': 0,
-            }
+        }
+
+    def verbprint(self, *args, **argsv):
+        """Output if verbose."""
+        if self.verbose:
+            utils.uprint(*args, **argsv)
 
     def _generateInitPars(self):
         """Generate initial set of parameters from fit."""
@@ -106,7 +117,8 @@ class MCMC:
                 p0, iterations=length, store=False)):
 
             if i % 10 == 0:
-                uprint(' Burn %i / %i (%.1f%%)' % (i, length, i*100/length))
+                self.verbprint(' Burn %i / %i (%.1f%%)' % (
+                    i, length, i*100/length))
 
             self.pos0 = result.coords
             lnlike = result.log_prob
@@ -121,7 +133,7 @@ class MCMC:
             if ( autorefit and i>length*minfrac and
                  bestfit is not None ):
 
-                uprint(
+                self.verbprint(
                     '  Restarting burn as new best fit has been found '
                     ' (%g > %g)' % (bestlike, initlike) )
                 self.fit.pars.setFree(bestfit)
@@ -139,9 +151,9 @@ class MCMC:
         :param float minimprove: minimum improvement in fit statistic to do a new fit
         """
 
-        uprint('Burning in')
+        self.verbprint('Burning in')
         while not self._innerburn(length, autorefit, minfrac, minimprove):
-            uprint('Restarting, as new mininimum found')
+            self.verbprint('Restarting, as new mininimum found')
             self.fit.run()
 
     def run(self, length):
@@ -150,15 +162,15 @@ class MCMC:
         :param int length: length of chain
         """
 
-        uprint('Sampling')
+        self.verbprint('Sampling')
         self.header['length'] = length
 
         # initial parameters
         if self.pos0 is None:
-            uprint(' Generating initial parameters')
+            self.verbprint(' Generating initial parameters')
             p0 = self._generateInitPars()
         else:
-            uprint(' Starting from end of burn-in position')
+            self.verbprint(' Starting from end of burn-in position')
             p0 = self.pos0
 
         # do sampling
@@ -166,9 +178,10 @@ class MCMC:
                 p0, iterations=length)):
 
             if i % 10 == 0:
-                uprint(' Step %i / %i (%.1f%%)' % (i, length, i*100/length))
+                self.verbprint(' Step %i / %i (%.1f%%)' % (
+                    i, length, i*100/length))
 
-        uprint('Done')
+        self.verbprint('Done')
 
     def save(self, outfilename, thin=1):
         """Save chain to HDF5 file.
@@ -179,7 +192,7 @@ class MCMC:
 
         self.header['thin'] = thin
 
-        uprint('Saving chain to', outfilename)
+        self.verbprint('Saving chain to', outfilename)
         with h5py.File(outfilename, 'w') as f:
             # write header entries
             for h in sorted(self.header):
@@ -198,10 +211,12 @@ class MCMC:
             f.create_dataset(
                 'likelihood',
                 data=self.sampler.lnprobability[:, ::thin].astype(N.float32),
-                compression=True, shuffle=True)
+                compression=True,
+                shuffle=True
+            )
             # acceptance fraction
             f['acceptfrac'] = self.sampler.acceptance_fraction.astype(N.float32)
             # last position in chain
             f['lastpos'] = self.sampler.chain[:, -1, :].astype(N.float32)
 
-        uprint('Done')
+        self.verbprint('Done')

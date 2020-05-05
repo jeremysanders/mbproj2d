@@ -182,12 +182,14 @@ def runAnalysis(imgarrs):
         back_models=[backmod],
     )
 
-    pars.show()
+    pars.write()
 
 
     fit = mb.Fit(images, totmod, pars)
     fit.run()
-    pars.show()
+    pars.write()
+
+    fit.save('3d_model.fit')
 
     mcmc = mb.MCMC(fit, processes=4)
 

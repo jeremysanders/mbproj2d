@@ -28,10 +28,10 @@ import pyfftw
 from pyfftw import zeros_aligned, ones_aligned, empty_aligned
 pyfftw.interfaces.cache.enable()
 
-def uprint(*args, **argsv):
+def uprint(*args, file=sys.stdout):
     """Unbuffered print."""
-    print(*args, **argsv)
-    sys.stdout.flush()
+    print(*args, file=file)
+    file.flush()
 
 def diffCube(a, b):
     """Difference between a**3 and b**3."""
@@ -108,7 +108,7 @@ def calcMedianErrors(results):
     medians = r[ int(num*0.5) ]
     lowpcs = r[ int(num*0.1585) ]
     uppcs = r[ int(num*0.8415) ]
-    
+
     return medians, uppcs-medians, lowpcs-medians
 
 def calcChi2(model, data, error):
@@ -155,7 +155,7 @@ class AtomicWriteFile(object):
     def __exit__(self, type, value, traceback):
         self.f.close()
         os.rename(self.tempfilename, self.filename)
-    
+
 def gehrels(c):
     return 1. + N.sqrt(c + 0.75)
 

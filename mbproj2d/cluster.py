@@ -20,7 +20,25 @@ from .ratecalc import RateCalc
 from .profile import Radii
 from .fast import addSBToImg
 
-class ClusterNonHydro(SrcModelBase):
+class ClusterBase(SrcModelBase):
+    def __init__(
+            self, name, pars, images, cosmo=None,
+            NH_1022pcm2=0., cx=0., cy=0.):
+        SrcModelBase.__init__(self, name, pars, images, cx=cx, cy=cy)
+
+        self.cosmo = cosmo
+        self.NH_1022pcm2 = NH_1022pcm2
+
+    def computeProfiles(self, pars, radii):
+        """Compute plasma profiles.
+
+        :param pars: Pars object with parameters
+        :param radii: Radii object with radii to compute for
+
+        Returns (ne_prof, T_prof, Z_prof)
+        """
+
+class ClusterNonHydro(ClusterBase):
 
     def __init__(
             self, name, pars, images,
@@ -30,11 +48,13 @@ class ClusterNonHydro(SrcModelBase):
             maxradius_kpc=3000.,
             cx=0., cy=0.
     ):
-        SrcModelBase.__init__(
-            self, name, pars, images, cx=cx, cy=cy)
+        ClusterBase.__init__(
+            self, name, pars, images,
+            cx=cx, cy=cy,
+            cosmo=cosmo,
+            NH_1022pcm2=NH_1022pcm2,
+        )
 
-        self.cosmo = cosmo
-        self.NH_1022pcm2 = NH_1022pcm2
         self.ne_prof = ne_prof
         self.T_prof = T_prof
         self.Z_prof = Z_prof
@@ -76,8 +96,8 @@ class ClusterNonHydro(SrcModelBase):
             pixsize_as = img.pixsize_as
 
             # calculate emissivity profile (per kpc3)
-            emiss_arr_pkpc3 = self.image_RateCalc[img].getRate(
-                T_arr[pixsize_as], Z_arr[pixsize_as], ne_arr[pixsize_as])
+            emiss_arr_pkpc3 = self.image_RateCalc[img].get(
+                ne_arr[pixsize_as], T_arr[pixsize_as], Z_arr[pixsize_as])
 
             # project emissivity to SB profile and convert to per pixel
             sb_arr = self.pixsize_Radii[pixsize_as].project(emiss_arr_pkpc3)
@@ -89,3 +109,18 @@ class ClusterNonHydro(SrcModelBase):
 
             # add SB profile to image
             addSBToImg(1, sb_arr, pix_cx, pix_cy, imgarr)
+
+    def computeProfiles(self, pars, radii):
+        """Compute plasma profiles.
+
+        :param pars: Pars object with parameters
+        :param radii: Radii object with radii to compute for
+
+        Returns (ne_prof, T_prof, Z_prof)
+        """
+
+        ne_arr = self.ne_prof.compute(pars, radii)
+        T_arr = self.T_prof.compute(pars, radii)
+        Z_arr = self.Z_prof.compute(pars, radii)
+
+        return ne_arr, T_arr, Z_arr

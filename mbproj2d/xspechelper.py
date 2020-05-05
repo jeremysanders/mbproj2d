@@ -139,7 +139,7 @@ class XSpecHelper:
     def dummyResponse(self):
         """Make a wide-energy band dummy response."""
         self.write('data none\n')
-        self.write('dummyrsp 0.01 100. 1000\n')
+        self.write('dummyrsp 0.01 100. 10000\n')
         self.throwAwayOutput()
 
     def getCountsPerSec(self, NH_1022, T_keV, Z_solar, cosmo, ne_cm3):
@@ -152,11 +152,14 @@ class XSpecHelper:
         modelrate = float( retn.split()[2] )
         return modelrate
 
-    def getFlux(self, T_keV, Z_solar, cosmo, ne_cm3, emin_keV=0.01, emax_keV=100.):
+    def getFlux(
+            self, NH_1022, T_keV, Z_solar, cosmo, ne_cm3,
+            emin_keV=0.01, emax_keV=100.
+    ):
         """Get flux in erg cm^-2 s^-1 from parcel of gas with the above parameters.
         emin_keV and emax_keV are the energy bounds
         """
-        self.setModel(0., T_keV, Z_solar, cosmo, ne_cm3)
+        self.setModel(NH_1022, T_keV, Z_solar, cosmo, ne_cm3)
         self.write('flux %e %e\n' % (emin_keV, emax_keV))
         self.write('puts "$SCODE [tcloutr flux] $SCODE"\n')
         flux = float( self.readResult().split()[0] )
