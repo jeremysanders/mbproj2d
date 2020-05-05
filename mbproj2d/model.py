@@ -123,6 +123,7 @@ class BackModelFlat(BackModelBase):
     def __init__(
             self, name, pars, images,
             log=False, normarea=False,
+            defval=0.,
             expmap=None
     ):
         """A flat background model.
@@ -132,14 +133,15 @@ class BackModelFlat(BackModelBase):
         :param images: list of data.Image objects
         :param bool log: apply log scaling to value of background
         :param bool normarea: normalise background to per sq arcsec
+        :param defval: default parameter
         :param expmap: name or index of exposure map to use (if any)
         """
         BackModelBase.__init__(self, name, pars, images, expmap=expmap)
         for image in images:
             if log:
-                pars['%s_%s' % (name, image.img_id)] = Par(0.)
+                pars['%s_%s' % (name, image.img_id)] = Par(defval)
             else:
-                pars['%s_%s' % (name, image.img_id)] = Par(0., minval=0.)
+                pars['%s_%s' % (name, image.img_id)] = Par(defval, minval=0.)
         pars['%s_scale' % name] = Par(
             1.0, prior=PriorGaussian(1.0, 0.05), frozen=True)
         self.normarea = normarea
