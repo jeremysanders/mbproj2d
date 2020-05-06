@@ -56,6 +56,9 @@ class Image:
         self.pixsize_as = pixsize_as
         self.invpixsize = 1/pixsize_as
 
+        if self.shape[0] % 2 !=0 or self.shape[1] % 2 != 0:
+            raise RuntimeError('Input images must have even numbers of pixels')
+
         # copy image
         self.imagearr = utils.empty_aligned(self.shape, dtype=N.float32)
         self.imagearr[:,:] = imagearr

@@ -114,7 +114,7 @@ class RateCalc:
         Z1T_ctrate = N.exp(N.interp(logT, self.Tlogvals, self.Z1rates))
 
         # use Z=0 and Z=1 count rates to evaluate at Z given
-        return (Z0T_ctrate + (Z1T_ctrate-Z0T_ctrate)*Z_solar) * ne_cm3**2
+        return (Z0T_ctrate + (Z1T_ctrate-Z0T_ctrate)*Z_solar) * ne_pcm3**2
 
 class FluxCalc:
     """Get fluxes for temperatures, densities and metallicities using xspec

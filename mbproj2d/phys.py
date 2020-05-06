@@ -171,7 +171,13 @@ class Phys:
         return v
 
     def loadChainFromFile(self, chainfname, burn=0, thin=10, randsample=False):
-        """Get list of parameter values from chain."""
+        """Get list of parameter values from chain.
+
+        :param chainfname: input chain HDF5 file
+        :param burn: how many iterations to remove off input
+        :param thin: discard every N entries
+        :param randsample: randomly sample before discarding
+        """
 
         with h5py.File(chainfname, 'r') as f:
             freekeys = self.pars.freeKeys()
@@ -192,7 +198,10 @@ class Phys:
         return chain
 
     def computePhysChains(self, chain):
-        """Compute set of chains for each physical quantity."""
+        """Compute set of chains for each physical quantity.
+
+        :param chain: list/array of free parameter values (can be loaded using loadChainFromFile)
+        """
 
         uprint('Computing physical quantities from chain')
         pars = self.pars.copy()
@@ -225,7 +234,10 @@ class Phys:
         return data
 
     def calcPhysChainStats(self, physchains, confint=68.269):
-        """Take physical chains and compute profiles with 1 sigma ranges."""
+        """Take physical chains and compute profiles with 1 sigma ranges.
+
+        :param physchains: physical chains computed from computePhysChains
+        """
 
         uprint(' Computing medians')
 
@@ -249,8 +261,39 @@ class Phys:
         return out
 
     def writeStatsToFile(self, fname, stats, mode='hdf5'):
+        """Write computed statistics to output filename.
+
+        Each physical variable is written with a column, with the 1-sigma
+        +- error bars.
+
+        :param mode: write file mode (only hdf5 supported so far)
+        """
+
+
         if mode == 'hdf5':
             with h5py.File(fname, 'w') as f:
                 for k in sorted(stats):
                     f[k] = stats[k]
                     f[k].attrs['vsz_twod_as_oned'] = 1
+
+    def chainFileToStatsFile(
+            self, chainfname, statfname, burn=0, thin=10, randsample=False,
+            confint=68.269,  mode='hdf5',
+            ):
+        """Simple wrapper to convert chain file to phys stats file.
+
+        :param chainfname: input chain file name
+        :param statfname: output statistics file name
+        :param burn: how many iterations to remove off input
+        :param thin: discard every N entries
+        :param randsample: randomly sample before discarding
+        :param confint: confidence interval to output
+        :param mode: write file mode (only hdf5 supported so far)
+        """
+
+
+        chain = self.loadChainFromFile(
+            chainfname, burn=burn, thin=thin, randsample=randsample)
+        physchain = self.computePhysChains(chain)
+        stats = self.calcPhysChainStats(physchain, confint=confint)
+        self.writeStatsToFile(statfname, stats)
