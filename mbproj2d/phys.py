@@ -89,7 +89,7 @@ class Phys:
             model.cosmo, 0.01, 100, NH_1022pcm2=0)
 
         # conversion factor from above to luminosity
-        self.flux_to_lumin = 4*math.pi*(model.cosmo.D_L*kpc_cm)**2
+        self.flux_to_lumin = 4*math.pi*(model.cosmo.D_L*Mpc_cm)**2
 
         if binning == 'log':
             self.out_edges_kpc = N.logspace(
