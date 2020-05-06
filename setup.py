@@ -23,7 +23,11 @@ extensions = [
     Extension(
         "fast",
         fastsourcefiles,
-        extra_compile_args=['-fno-math-errno', '-mavx2'],
+        extra_compile_args = [
+            '-fno-math-errno',
+            '-mavx2',
+            '-std=c++11',
+        ],
     ),
 ]
 
@@ -37,14 +41,14 @@ install_requires = [
 ]
 
 setup(
-    name='MBProj2D',
-    version='0.1',
-    description='Forward fitting cluster modelling',
-    author='Jeremy Sanders',
-    author_email='jeremy@jeremysanders.net',
-    url='https://github.com/jeremysanders/mbproj2d',
-    install_requires=install_requires,
+    name = 'MBProj2D',
+    version = '0.1',
+    description = 'Forward fitting cluster modelling',
+    author = 'Jeremy Sanders',
+    author_email = 'jeremy@jeremysanders.net',
+    url = 'https://github.com/jeremysanders/mbproj2d',
+    install_requires = install_requires,
     packages = ['mbproj2d'],
-    ext_package='mbproj2d',
+    ext_package = 'mbproj2d',
     ext_modules = cythonize(extensions),
 )
