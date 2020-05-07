@@ -283,6 +283,8 @@ class ForkQueue(ForkBase):
             read, write, err = select.select(list(sockchunks), [], [])
             for sock in read:
                 res = recvItem(sock)
+                if isinstance(res, Exception):
+                    raise res
                 idx = sockchunks[sock]
                 retn[idx*chunksize:(idx+1)*chunksize] = res
                 del sockchunks[sock]
