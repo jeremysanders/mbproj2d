@@ -34,16 +34,14 @@ class Likelihood:
 
         # do not evaluate a bad model if the prior is out of range
         if not N.isfinite(self.prior):
-            self.images = [-N.inf]*len(images)
-            self.total = -N.inf
-            return
-
-        modelarrs = model.compute(pars)
-        imagelikes = []
-        for modarr, image in zip(modelarrs, images):
-            like = fast.calcPoissonLogLikelihoodMasked(
-                image.imagearr, modarr, image.mask)
-            imagelikes.append(like)
+            imagelikes = [-N.inf]*len(images)
+        else:
+            modelarrs = model.compute(pars)
+            imagelikes = []
+            for modarr, image in zip(modelarrs, images):
+                like = fast.calcPoissonLogLikelihoodMasked(
+                    image.imagearr, modarr, image.mask)
+                imagelikes.append(like)
 
         self.images = imagelikes
         self.total = self.prior + sum(imagelikes)
