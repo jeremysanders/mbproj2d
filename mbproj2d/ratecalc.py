@@ -106,15 +106,21 @@ class RateCalc:
         self.Z1rates = N.log(ZTrates[1])
 
     def get(self, ne_pcm3, T_keV, Z_solar):
-        """Get the count rates per kpc3 for an array of T,Z,ne."""
+        """Get the count rates per kpc3 for an array of T,Z,ne.
 
-        T_keV = N.clip(T_keV, self.Tmin, self.Tmax)
+        If T is out of range or Z<0, return nan values
+        """
+
         logT = N.log(T_keV)
         Z0T_ctrate = N.exp(N.interp(logT, self.Tlogvals, self.Z0rates))
         Z1T_ctrate = N.exp(N.interp(logT, self.Tlogvals, self.Z1rates))
 
         # use Z=0 and Z=1 count rates to evaluate at Z given
-        return (Z0T_ctrate + (Z1T_ctrate-Z0T_ctrate)*Z_solar) * ne_pcm3**2
+        rates = (Z0T_ctrate + (Z1T_ctrate-Z0T_ctrate)*Z_solar) * ne_pcm3**2
+        # force bad values if we go out of range
+        rates[(T_keV < self.Tmin) | (T_keV > self.Tmax) | (Z_solar < 0)] = N.nan
+
+        return rates
 
 class FluxCalc:
     """Get fluxes for temperatures, densities and metallicities using xspec

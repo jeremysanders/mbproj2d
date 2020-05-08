@@ -16,6 +16,7 @@
 import sys
 import math
 import numpy as N
+import scipy.stats
 
 from . import utils
 
@@ -25,6 +26,10 @@ class PriorBase:
 
     def __repr__(self):
         return '<PriorBase: None>'
+
+    def paramFromUnit(self, unit):
+        """Compute a parameter value to an input 0...1."""
+        return None
 
     def copy(self):
         return PriorBase()
@@ -44,6 +49,9 @@ class PriorFlat(PriorBase):
     def __repr__(self):
         return '<PriorFlat: minval=%s, maxval=%s>' % (
             repr(self.minval), repr(self.maxval))
+
+    def paramFromUnit(self, unit):
+        return (self.maxval-self.minval)*unit + self.minval
 
     def copy(self):
         return PriorFlat(self.minval, self.maxval)
@@ -67,6 +75,9 @@ class PriorGaussian(PriorBase):
     def __repr__(self):
         return '<PriorGaussian: mu=%s, sigma=%s>' % (
             self.mu, self.sigma)
+
+    def paramFromUnit(self, unit):
+        return scipy.stats.norm.ppf(unit, self.mu, self.sigma)
 
     def copy(self):
         return PriorGaussian(self.mu, self.sigma)

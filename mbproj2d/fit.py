@@ -32,6 +32,12 @@ class Likelihood:
     def __init__(self, images, model, pars):
         self.prior = model.prior(pars)
 
+        # do not evaluate a bad model if the prior is out of range
+        if not N.isfinite(self.prior):
+            self.images = [-N.inf]*len(images)
+            self.total = -N.inf
+            return
+
         modelarrs = model.compute(pars)
         imagelikes = []
         for modarr, image in zip(modelarrs, images):
