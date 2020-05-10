@@ -18,7 +18,11 @@
 from setuptools import Extension, setup
 from Cython.Build import cythonize
 
-fastsourcefiles = ['mbproj2d/fast/project.pyx', 'mbproj2d/fast/project_cc.cc']
+fastsourcefiles = [
+    'mbproj2d/fast/project.pyx',
+    'mbproj2d/fast/project_cc.cc',
+    'mbproj2d/fast/binimg_cc.cc',
+]
 extensions = [
     Extension(
         "fast",

@@ -25,6 +25,12 @@ cdef extern from "project_cc.hh":
     void clipMin(float minval, int ny, int nx, float* arr)
     void clipMax(float maxval, int ny, int nx, float* arr)
 
+cdef extern from "binimg_cc.hh":
+    void accreteBinImage_cc(int xw, int yw, const float *inimg, const int *mask,
+                            float thresh, int *binimg)
+    void buildVoronoiMap_cc(int xw, int yw, const float *inimg,
+                            int *binimg)
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def projectEmissivity(float rbin, np.ndarray emiss):
@@ -115,3 +121,28 @@ def clip2DMin(float[:,::1] img, float val):
 @cython.wraparound(False)
 def clip2DMax(float[:,::1] img, float val):
     clipMax(val, img.shape[0], img.shape[1], &img[0,0])
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def accreteBinImage(float[:,::1] inimg, int[:,::1] mask, double thresh):
+    assert inimg.shape[0] == mask.shape[0]
+    assert inimg.shape[1] == mask.shape[1]
+
+    cdef int[:,::1] out_view
+
+    out = np.empty((inimg.shape[0], inimg.shape[1]), dtype=np.int32)
+    out_view = out
+
+    accreteBinImage_cc(inimg.shape[1], inimg.shape[0], &inimg[0,0],
+                       &mask[0,0], thresh, &out_view[0,0])
+
+    return out
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def buildVoronoiMap(float[:,::1] inimg, int[:,::1] binmap):
+    assert inimg.shape[0] == binmap.shape[0]
+    assert inimg.shape[1] == binmap.shape[1]
+
+    buildVoronoiMap_cc(inimg.shape[0], inimg.shape[1], &inimg[0,0],
+                       &binmap[0,0])
