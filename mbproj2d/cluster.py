@@ -30,7 +30,7 @@ class ClusterBase(SrcModelBase):
         self.NH_1022pcm2 = NH_1022pcm2
 
     def computeProfiles(self, pars, radii):
-        """Compute plasma profiles.
+        """Compute plasma profiles for use in physical profile computation
 
         :param pars: Pars object with parameters
         :param radii: Radii object with radii to compute for
@@ -39,6 +39,7 @@ class ClusterBase(SrcModelBase):
         """
 
 class ClusterNonHydro(ClusterBase):
+    """Model for a cluster, given density, temperature and metallicity profiles."""
 
     def __init__(
             self, name, pars, images,
@@ -48,6 +49,17 @@ class ClusterNonHydro(ClusterBase):
             maxradius_kpc=3000.,
             cx=0., cy=0.
     ):
+        """
+        :param cosmo: Cosmology object
+        :param NH_1022pcm2: Column density
+        :param ne_prof: Profile object for density
+        :param T_prof: Profile object for temperature
+        :param Z_prof: Profile object for metallicity
+        :param maxradius_kpc: Compute profile out to this radius
+        :param cx: cluster centre (arcsec)
+        :param cy: cluster centre (arcsec)
+        """
+
         ClusterBase.__init__(
             self, name, pars, images,
             cx=cx, cy=cy,

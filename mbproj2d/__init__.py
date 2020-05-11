@@ -25,3 +25,4 @@ from .utils import *
 from .mcmc import *
 from .xspechelper import *
 from .phys import *
+from .point import *

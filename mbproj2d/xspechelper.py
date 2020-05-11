@@ -111,6 +111,11 @@ class XSpecHelper:
             search = XSpecHelper.specialre.search(line)
         return search.group(1)
 
+    def setAbund(self, abund):
+        """Set model abundance."""
+        self.write('abund %s\n' % abund)
+        self.throwAwayOutput()
+
     def setModel(self, NH_1022pcm2, T_keV, Z_solar, cosmo, ne_cm3):
         """Make a model with column density, temperature and density given."""
         self.write('model none\n')
@@ -118,9 +123,23 @@ class XSpecHelper:
             1e-14 / 4 / pi / (cosmo.D_A*Mpc_cm * (1.+cosmo.z))**2 * ne_cm3**2 / ne_nH *
             self.unitvol_cm3
             )
-        self.write('model TBabs(apec) & %g & %g & %g & %g & %g\n' %
-            (NH_1022pcm2, T_keV, Z_solar, cosmo.z, norm))
+        self.write(
+            'model TBabs(apec) & %g & %g & %g & %g & %g\n' %
+            (NH_1022pcm2, T_keV, Z_solar, cosmo.z, norm)
+        )
         self.throwAwayOutput()
+
+    def plawCountsPerSec(self, NH_1022pcm2, gamma, norm):
+        """For a powerlaw given, compute the rate."""
+        self.write(
+            'model TBabs(powerlaw) & %g & %g & %g\n' %
+            (NH_1022pcm2, gamma, norm)
+        )
+        self.throwAwayOutput()
+        self.write('puts "$SCODE [tcloutr rate 1] $SCODE"\n')
+        retn = self.readResult()
+        modelrate = float( retn.split()[2] )
+        return modelrate
 
     def changeResponse(self, rmf, arf, minenergy_keV, maxenergy_keV):
         """Create a fake spectrum using the response and use energy range given."""

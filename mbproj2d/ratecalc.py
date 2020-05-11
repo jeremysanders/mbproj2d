@@ -44,6 +44,8 @@ class RateCalc:
     Tsteps = 100
     Tlogvals = N.linspace(N.log(Tmin), N.log(Tmax), Tsteps)
 
+    abund = 'lodd'
+
     hdffname = 'mbproj2d_cache.hdf5'
 
     def __init__(self, cosmo, rmf, arf, emin_keV, emax_keV, NH_1022pcm2):
@@ -62,6 +64,7 @@ class RateCalc:
         h = hashlib.md5()
         h.update(os.path.abspath(rmf).encode('utf8'))
         h.update(os.path.abspath(arf).encode('utf8'))
+        h.update(self.abund.encode('utf8'))
         h.update(N.array((cosmo.z, emin_keV, emax_keV, NH_1022pcm2)))
         h.update(self.Tlogvals)
         self.key = 'rates_' + h.hexdigest()
@@ -84,6 +87,7 @@ class RateCalc:
                     with XSpecContext() as xspec:
                         xspec.changeResponse(
                             self.rmf, self.arf, self.emin_keV, self.emax_keV)
+                        xspec.setAbund(self.abund)
                         ZTrates = N.array([
                             [
                                 xspec.getCountsPerSec(
@@ -100,6 +104,7 @@ class RateCalc:
                     attrs['NH_1022pcm2'] = self.NH_1022pcm2
                     attrs['erange_keV'] = (self.emin_keV, self.emax_keV)
                     attrs['Tlogvals'] = self.Tlogvals
+                    attrs['abund'] = self.abund
 
         Ztrates = N.clip(ZTrates, 1e-100, None)
         self.Z0rates = N.log(ZTrates[0])
@@ -122,6 +127,52 @@ class RateCalc:
 
         return rates
 
+class PowerlawRateCalc:
+    """Get fluxes in bands for a powerlaw models."""
+
+    gamma_min = 0.0
+    gamma_max = 3.0
+    gamma_bins = 61
+    gammas = N.linspace(gamma_min, gamma_max, gamma_bins)
+
+    hdffname = 'mbproj2d_cache.hdf5'
+
+    def __init__(self, rmf, arf, emin_keV, emax_keV, NH_1022pcm2):
+
+        # build a key to lookup/store in the cache file
+        h = hashlib.md5()
+        h.update(os.path.abspath(rmf).encode('utf8'))
+        h.update(os.path.abspath(arf).encode('utf8'))
+        h.update(N.array((emin_keV, emax_keV, NH_1022pcm2)))
+        h.update(self.gammas)
+        self.key = 'rates_plaw_' + h.hexdigest()
+
+        # see whether calculations are in file
+        with utils.WithLock(self.hdffname + '.lockdir') as lock:
+            with h5py.File(self.hdffname, 'a') as fcache:
+                if self.key in fcache:
+                    # already calculated
+                    self.rates = N.array(fcache[self.key])
+                else:
+                    # calculate
+                    rates = []
+                    with XSpecContext() as xspec:
+                        xspec.changeResponse(rmf, arf, emin_keV, emax_keV)
+                        for gamma in self.gammas:
+                            rates.append(xspec.plawCountsPerSec(NH_1022pcm2, gamma, 1.0))
+                    self.rates = N.array(rates)
+                    fcache[self.key] = self.rates
+
+                    # attributes to track cached items
+                    attrs = fcache[self.key].attrs
+                    attrs['NH_1022pcm2'] = NH_1022pcm2
+                    attrs['erange_keV'] = (emin_keV, emax_keV)
+                    attrs['gammas'] = self.gammas
+
+    def get(self, gamma, norm):
+        """Get powerlaw rate for a particular gamma and norm."""
+        return N.interp(gamma, self.gammas, self.rates) * norm
+
 class FluxCalc:
     """Get fluxes for temperatures, densities and metallicities using xspec
     (results are erg/cm2/s/kpc3)
@@ -135,6 +186,8 @@ class FluxCalc:
     Tlogvals = N.linspace(N.log(Tmin), N.log(Tmax), Tsteps)
 
     hdffname = 'mbproj2d_cache.hdf5'
+
+    abund = 'lodd'
 
     def __init__(self, cosmo, emin_keV, emax_keV, NH_1022pcm2=0):
         self.cosmo = cosmo
@@ -165,6 +218,7 @@ class FluxCalc:
                     # calculate using xspec
                     with XSpecContext() as xspec:
                         xspec.dummyResponse()
+                        xspec.setAbund(self.abund)
                         ZTfluxes = N.array([
                             [
                                 xspec.getFlux(
@@ -182,6 +236,7 @@ class FluxCalc:
                     attrs['NH_1022pcm2'] = self.NH_1022pcm2
                     attrs['erange_keV'] = (self.emin_keV, self.emax_keV)
                     attrs['Tlogvals'] = self.Tlogvals
+                    attrs['abund'] = self.abund
 
         Ztfluxes = N.clip(ZTfluxes, 1e-100, None)
         self.Z0fluxes = N.log(ZTfluxes[0])

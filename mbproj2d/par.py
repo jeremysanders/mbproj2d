@@ -15,6 +15,7 @@
 
 import sys
 import math
+import pickle
 import numpy as N
 import scipy.stats
 
@@ -239,3 +240,17 @@ class Pars(dict):
                 v.linked = newpars[vtok[v.linked]]
 
         return newpars
+
+    def save(self, filename):
+        """Saves the parameters as a Python pickle.
+
+        *Note*: upgrading the source code of mbproj2d or your prior
+        may prevent the saved file from being loadable again. Take
+        care before relying on this for long term storage.
+
+        :param filename: output filename
+
+        """
+
+        with open(filename, 'wb') as f:
+            pickle.dump(self, f)
