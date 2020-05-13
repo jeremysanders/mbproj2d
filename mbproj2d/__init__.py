@@ -18,6 +18,7 @@ from .physconstants import *
 from .data import *
 from .model import *
 from .cluster import *
+from .point import *
 from .cosmo import *
 from .profile import *
 from .fit import *
@@ -25,4 +26,4 @@ from .utils import *
 from .mcmc import *
 from .xspechelper import *
 from .phys import *
-from .point import *
+from .sb import *

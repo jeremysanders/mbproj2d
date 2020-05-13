@@ -179,23 +179,10 @@ class Phys:
         :param randsample: randomly sample before discarding
         """
 
-        with h5py.File(chainfname, 'r') as f:
-            freekeys = self.pars.freeKeys()
-            filefree = [x.decode('utf-8') for x in f['thawed_params']]
-            if freekeys != filefree:
-                raise RuntimeError('Parameters do not match those in chain')
-
-            if randsample:
-                chain = N.array(f['chain'][:, burn:, :])
-                chain = chain.reshape(-1, chain.shape[2])
-                rows = N.arange(chain.shape[0])
-                N.random.shuffle(rows)
-                chain = chain[rows[:len(rows)//thin], :]
-            else:
-                chain = N.array(f['chain'][:, burn::thin, :])
-                chain = chain.reshape(-1, chain.shape[2])
-
-        return chain
+        return utils.loadChainFromFile(
+            chainfname, self.pars,
+            burn=burn, thin=thin, randsample=randsample,
+        )
 
     def computePhysChains(self, chain):
         """Compute set of chains for each physical quantity.
@@ -277,7 +264,7 @@ class Phys:
                     f[k].attrs['vsz_twod_as_oned'] = 1
 
     def chainFileToStatsFile(
-            self, chainfname, statfname, burn=0, thin=10, randsample=False,
+            self, chainfname, statfname, burn=0, thin=10, randsamples=None,
             confint=68.269,  mode='hdf5',
             ):
         """Simple wrapper to convert chain file to phys stats file.
@@ -286,14 +273,14 @@ class Phys:
         :param statfname: output statistics file name
         :param burn: how many iterations to remove off input
         :param thin: discard every N entries
-        :param randsample: randomly sample before discarding
+        :param randsamples: select N random samples after burn (ignores thin)
         :param confint: confidence interval to output
         :param mode: write file mode (only hdf5 supported so far)
         """
 
 
-        chain = self.loadChainFromFile(
-            chainfname, burn=burn, thin=thin, randsample=randsample)
+        chain = utils.loadChainFromFile(
+            chainfname, self.pars, burn=burn, thin=thin, randsamples=randsamples)
         physchain = self.computePhysChains(chain)
         stats = self.calcPhysChainStats(physchain, confint=confint)
         self.writeStatsToFile(statfname, stats)

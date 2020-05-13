@@ -44,7 +44,7 @@ class Image:
         :param expmaps: dict of numpy exposure map arrays (different components can use different exposure maps, if needed)
         :param mask: numpy mask array (None means no mask)
         :param psf: PSF object
-        :param origin: position (y,x) coordinates are measured relative to (should be same position in all images)
+        :param origin: position in pixels (y,x) coordinates are measured relative to (should be same position in all images)
         """
 
         self.img_id = img_id

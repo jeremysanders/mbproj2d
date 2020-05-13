@@ -22,6 +22,7 @@ import time
 import uuid
 
 import numpy as N
+import h5py
 from scipy.special import gammaln
 
 import pyfftw
@@ -166,3 +167,33 @@ def run_rfft2(x):
 def run_irfft2(x):
     """Call numpy or pyfftw for irfft2."""
     return pyfftw.interfaces.numpy_fft.irfft2(x)
+
+def loadChainFromFile(chainfname, pars, burn=0, thin=10, randsamples=None):
+    """Get list of parameter values from chain.
+    Walkers are collapsed into one dimension.
+    Output dimensions are (numsamples, numpars).
+
+    :param chainfname: input chain HDF5 file
+    :param pars: Pars() object to check against chain parameters
+    :param burn: how many iterations to remove off input
+    :param thin: discard every N entries
+    :param randsamples: randomly sample N samples if set (ignores thin)
+    """
+
+    with h5py.File(chainfname, 'r') as f:
+        freekeys = pars.freeKeys()
+        filefree = [x.decode('utf-8') for x in f['thawed_params']]
+        if freekeys != filefree:
+            raise RuntimeError('Parameters do not match those in chain')
+
+        if randsamples is not None:
+            chain = N.array(f['chain'][:, burn:, :])
+            chain = chain.reshape(-1, chain.shape[2])
+            rows = N.arange(chain.shape[0])
+            N.random.shuffle(rows)
+            chain = chain[rows[:randsamples], :]
+        else:
+            chain = N.array(f['chain'][:, burn::thin, :])
+            chain = chain.reshape(-1, chain.shape[2])
+
+    return chain

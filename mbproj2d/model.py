@@ -42,8 +42,10 @@ class TotalModel:
             self,
             pars,
             apply_psf=True, apply_expmap=True,
-            apply_src=True, apply_back=True):
+            apply_src=True, apply_back=True,
+    ):
         """Return a list of image arrays for the models.
+        :param pars: Pars() object with parameters
         :param apply_psf: whether to convolve with PSF
         :param apply_expmap: whether to multiply by exposure map
         :param apply_src: apply source models
@@ -79,6 +81,58 @@ class TotalModel:
                 model.compute(pars, imgarrs)
 
         return imgarrs
+
+    def compute_separate(
+            self,
+            pars,
+            apply_psf=True, apply_expmap=True,
+    ):
+        """Compute model for each component separately and combined.
+        :param pars: Pars() object with parameters
+        :param apply_psf: whether to convolve with PSF
+        :param apply_expmap: whether to multiply by exposure map
+        """
+
+        out = {}
+
+        def make_blank_images():
+            return [
+                utils.zeros_aligned(image.shape, dtype=N.float32)
+                for image in self.images
+            ]
+
+        # source models
+        for model in self.src_models:
+            imgarrs = make_blank_images()
+            model.compute(pars, imgarrs)
+
+            # convolve with PSF
+            if apply_psf:
+                for imgarr, image in zip(imgarrs, self.images):
+                    if image.psf is not None:
+                        image.psf.applyTo(imgarr)
+
+            # apply exposure map
+            if apply_expmap and self.src_expmap is not None:
+                for imgarr, image in zip(imgarrs, self.images):
+                    imgarr *= image.expmaps[self.src_expmap]
+
+            out[model.name] = imgarrs
+
+        # background components
+        for model in self.back_models:
+            imgarrs = make_blank_images()
+            model.compute(pars, imgarrs)
+            out[model.name] = imgarrs
+
+        # add up total
+        totimgarrs = make_blank_images()
+        for name in out:
+            for i, arr in enumerate(out[name]):
+                totimgarrs[i] += arr
+        out['total'] = totimgarrs
+
+        return out
 
     def prior(self, pars):
         """Given parameters, compute prior.

@@ -124,7 +124,7 @@ namespace
                   wts.push_back(0);
                   pt_wt.push_back(PointF());
                 }
-              const float wt = sqr(inimg[x+y*xw]);
+              const float wt = inimg[x+y*xw];
               wts[bin] += wt;
               pt_wt[bin] = pt_wt[bin] + PointF(wt*x, wt*y);
             }
@@ -170,7 +170,7 @@ void buildVoronoiMap_cc(int xw, int yw, const float *inimg,
 
 
 void accreteBinImage_cc(int xw, int yw, const float *inimg, const int *mask,
-			float thresh, int *binimg)
+			float threshcts, int *binimg)
 {
   // clean output
   for(int i=0; i<xw*yw; ++i)
@@ -195,12 +195,14 @@ void accreteBinImage_cc(int xw, int yw, const float *inimg, const int *mask,
       float thisweight = 0;
       PointI nextpix = startpix;
 
-      while(thisweight < thresh && nextpix.x >= 0)
+      while(thisweight < threshcts && nextpix.x >= 0)
 	{
-          const float wt = sqr(inimg[nextpix.x+nextpix.y*xw]);
-	  thisweight += wt;
-	  thiscen.x += nextpix.x*wt;
-	  thiscen.y += nextpix.y*wt;
+	  // S/N ~ cts/sqrt(cts) (ignoring background)
+	  // density in C&C03 paper = (S/N)**2 = cts
+	  const float cts = inimg[nextpix.x+nextpix.y*xw];
+	  thisweight += cts;
+	  thiscen.x += nextpix.x*cts;
+	  thiscen.y += nextpix.y*cts;
 	  binimg[nextpix.x+nextpix.y*xw] = binidx;
 
 	  if(thisweight > 0)
