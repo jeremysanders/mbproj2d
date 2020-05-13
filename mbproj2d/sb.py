@@ -61,6 +61,7 @@ class SBMaps:
             # in above image, -1 is masked regions, and bins are
             # counted from 0. We increment this by 1 so 0 is masked,
             # so numpy binning function works ok.
+            binmap[binmap<0] = -1
             binmap = binmap + 1
 
             binmaps.append(binmap)
