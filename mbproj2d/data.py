@@ -19,6 +19,8 @@ from scipy.special import gammaln
 from . import utils
 from . import fast
 
+
+
 class Image:
     """Image class details images to fit."""
 
@@ -32,6 +34,7 @@ class Image:
             mask=None,
             psf=None,
             origin=(0,0),
+            optimal_size=True,
     ):
         """
         :param img_id: unique id for image (str or int)
@@ -45,6 +48,7 @@ class Image:
         :param mask: numpy mask array (None means no mask)
         :param psf: PSF object
         :param origin: position in pixels (y,x) coordinates are measured relative to (should be same position in all images)
+        :param optimal_size: expand images to be optimal size for PSF convolution
         """
 
         self.img_id = img_id
@@ -52,16 +56,20 @@ class Image:
         self.emax_keV = emax_keV
         self.rmf = rmf
         self.arf = arf
-        self.shape = imagearr.shape
         self.pixsize_as = pixsize_as
         self.invpixsize = 1/pixsize_as
 
-        if self.shape[0] % 2 !=0 or self.shape[1] % 2 != 0:
-            raise RuntimeError('Input images must have even numbers of pixels')
+        if optimal_size:
+            imagearr, expmaps, mask = self._expandOptimal(
+                imagearr, expmaps, mask)
 
         # copy image
+        self.shape = imagearr.shape
         self.imagearr = utils.empty_aligned(self.shape, dtype=N.float32)
         self.imagearr[:,:] = imagearr
+
+        if self.shape[0] % 2 !=0 or self.shape[1] % 2 != 0:
+            raise RuntimeError('Input images must have even numbers of pixels')
 
         # mask should be -1 (included) or 0 (excluded), for use in simd
         self.mask = utils.zeros_aligned(self.shape, dtype=N.int32)
@@ -81,26 +89,63 @@ class Image:
 
         self.origin = origin
 
-    def expandArrays(self, shape):
-        """Expand arrays to match shape given.
+    def _expandOptimal(self, imagearr, expmaps, mask):
+        """Expand image sizes to be optimal for FFT speed
 
-        (not tested)
+        pyfftw works fastest on images which are factors of
+        2**a 3**b 5**c 7**d 11**e 13**f, where e+f is either 0 or 1, and a to d >=0
+
         """
-        temp = utils.zeros_aligned(shape, dtype=N.float32)
-        temp[:self.shape[0],:self.shape[1]] = self.imagearr
-        self.imagearr = temp
 
-        temp = utils.zeros_aligned(shape, dtype=N.int32)
-        temp[:self.shape[0],:self.shape[1]] = self.mask
-        self.mask = temp
+        # get list of fast sizes (reliable up to 2**16)
+        primes = [2,3,5,7]
+        fastdims = set(primes)
+        for nprime in range(16):
+            for p in primes:
+                for v in list(fastdims):
+                    if p*v <= 65536:
+                        fastdims.add(p*v)
+        # also factors of 11 and 13 of above are fast
+        for f in 11, 13:
+            for v in list(fastdims):
+                if v*f <= 65536:
+                    fastdims.add(v*f)
+        # get rid of odd factors
+        for d in list(fastdims):
+            if d%2 != 0:
+                fastdims.remove(d)
+        fastdims = N.array(sorted(fastdims))
 
-        if self.expmaps is not None:
-            for key in self.expmaps:
-                temp = utils.zeros_aligned(shape, dtype=N.float32)
-                temp[:self.shape[0],:self.shape[1]] = self.expmaps[key]
-                self.expmaps[key] = temp
+        # find next largest size
+        odim0, odim1 = imagearr.shape
+        dim0 = fastdims[N.searchsorted(fastdims, odim0)]
+        dim1 = fastdims[N.searchsorted(fastdims, odim1)]
 
-        self.shape = shape
+        # no expansion necessary
+        if odim0==dim0 and odim1==dim1:
+            return imagearr, expmaps, mask
+
+        # expand image with 0 at edge
+        newimage = N.zeros((dim0, dim1), dtype=N.float32)
+        newimage[:odim0,:odim1] = imagearr
+
+        # expand exposure maps with 0 at edge
+        if expmaps is None:
+            newexpmaps = None
+        else:
+            newexpmaps = {}
+            for name, expmap in expmaps.items():
+                newexpmap = N.zeros((dim0, dim1), dtype=N.float32)
+                newexpmap[:odim0,:odim1] = expmap
+                newexpmaps[name] = newexpmap
+
+        # expand mask with 0 at edge
+        if mask is None:
+            mask = N.ones((odim0, odim1), dtype=N.int32)
+        newmask = N.zeros((dim0, dim1), dtype=N.int32)
+        newmask[:odim0,:odim1] = N.where(mask, 1, 0)
+
+        return newimage, newexpmaps, newmask
 
 class PSF:
     """PSF modelling class."""
