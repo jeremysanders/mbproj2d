@@ -29,6 +29,8 @@ import pyfftw
 from pyfftw import zeros_aligned, ones_aligned, empty_aligned
 pyfftw.interfaces.cache.enable()
 
+from .physconstants import kpc_cm, ne_nH, Mpc_cm
+
 def uprint(*args, file=sys.stdout):
     """Unbuffered print."""
     print(*args, file=file)
@@ -93,6 +95,13 @@ def projectionVolumeMatrix(radii):
     p4 = (R2_2-y1_2).clip(0)
 
     return (4/3*math.pi) * ((p1**1.5 - p2**1.5) + (p4**1.5 - p3**1.5))
+
+def calcNeSqdToNormPerKpc3(cosmo):
+    """Compute factor to convert a ne-squared to a norm per kpc3."""
+    return (
+        1e-14 / (4*math.pi*(cosmo.D_A*Mpc_cm * (1.+cosmo.z))**2) /
+        ne_nH * kpc_cm**3
+    )
 
 def symmetriseErrors(data):
     """Take numpy-format data,+,- and convert to data,+-."""

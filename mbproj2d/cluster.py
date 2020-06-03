@@ -16,9 +16,10 @@
 import numpy as N
 
 from .model import SrcModelBase
-from .ratecalc import RateCalc
+from .ratecalc import ApecRateCalc
 from .profile import Radii
 from .fast import addSBToImg
+from . import utils
 
 class ClusterBase(SrcModelBase):
     def __init__(
@@ -74,6 +75,9 @@ class ClusterNonHydro(ClusterBase):
         self.pixsize_Radii = {}  # radii indexed by pixsize
         self.image_RateCalc = {} # RateCalc for each image
 
+        # factor to convert from ne**2 -> norm/kpc3
+        self.nesqd_to_norm = utils.calcNeSqdToNormPerKpc3(cosmo)
+
         for img in images:
             pixsize_as = img.pixsize_as
 
@@ -83,10 +87,10 @@ class ClusterNonHydro(ClusterBase):
                 num = int(maxradius_kpc/pixsize_kpc)+1
                 self.pixsize_Radii[pixsize_as] = Radii(pixsize_kpc, num)
 
-            # make object to convert from plasma properties -> rates/kpc3
-            self.image_RateCalc[img] = RateCalc(
-                cosmo, img.rmf, img.arf, img.emin_keV, img.emax_keV,
-                NH_1022pcm2)
+            # make object to convert from plasma properties to rates
+            self.image_RateCalc[img] = ApecRateCalc(
+                img.rmf, img.arf, img.emin_keV, img.emax_keV,
+                NH_1022pcm2, cosmo.z)
 
     def compute(self, pars, imgarrs):
         """Add cluster model to images."""
@@ -95,11 +99,12 @@ class ClusterNonHydro(ClusterBase):
         cx_as = pars['%s_cx' % self.name].v
 
         # get plasma profiles for each pixel size
-        ne_arr = {}
+        norm_arr = {}
         T_arr = {}
         Z_arr = {}
         for pixsize, radii in self.pixsize_Radii.items():
-            ne_arr[pixsize] = self.ne_prof.compute(pars, radii)
+            ne = self.ne_prof.compute(pars, radii)
+            norm_arr[pixsize] = self.nesqd_to_norm * ne**2
             T_arr[pixsize] = self.T_prof.compute(pars, radii)
             Z_arr[pixsize] = self.Z_prof.compute(pars, radii)
 
@@ -109,7 +114,7 @@ class ClusterNonHydro(ClusterBase):
 
             # calculate emissivity profile (per kpc3)
             emiss_arr_pkpc3 = self.image_RateCalc[img].get(
-                ne_arr[pixsize_as], T_arr[pixsize_as], Z_arr[pixsize_as])
+                T_arr[pixsize_as], Z_arr[pixsize_as], norm_arr[pixsize_as])
 
             # project emissivity to SB profile and convert to per pixel
             sb_arr = self.pixsize_Radii[pixsize_as].project(emiss_arr_pkpc3)

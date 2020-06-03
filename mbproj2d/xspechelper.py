@@ -18,7 +18,6 @@ given model parameters.
 
 """
 
-from math import pi
 import subprocess
 import os
 import select
@@ -26,9 +25,6 @@ import atexit
 import re
 import sys
 import signal
-
-from .physconstants import Mpc_cm, ne_nH, kpc_cm
-from . import cosmo
 
 def deleteFile(filename):
     """Delete file, ignoring errors."""
@@ -57,9 +53,6 @@ class XSpecHelper:
 
     specialcode = '@S@T@V'
     specialre = re.compile('%s (.*) %s' % (specialcode, specialcode))
-
-    # results are per volume of kpc3
-    unitvol_cm3 = kpc_cm**3
 
     def __init__(self):
         try:
@@ -116,35 +109,24 @@ class XSpecHelper:
         self.write('abund %s\n' % abund)
         self.throwAwayOutput()
 
-    def setModel(self, NH_1022pcm2, T_keV, Z_solar, cosmo, ne_cm3):
-        """Make a model with column density, temperature and density given."""
-        self.write('model none\n')
-        norm = (
-            1e-14 / 4 / pi / (cosmo.D_A*Mpc_cm * (1.+cosmo.z))**2 * ne_cm3**2 / ne_nH *
-            self.unitvol_cm3
-            )
-        self.write(
-            'model TBabs(apec) & %g & %g & %g & %g & %g\n' %
-            (NH_1022pcm2, T_keV, Z_solar, cosmo.z, norm)
-        )
-        self.throwAwayOutput()
-
-    def plawCountsPerSec(self, NH_1022pcm2, gamma, norm):
-        """For a powerlaw given, compute the rate."""
-        self.write(
-            'model TBabs(powerlaw) & %g & %g & %g\n' %
-            (NH_1022pcm2, gamma, norm)
-        )
-        self.throwAwayOutput()
+    def getRate(self):
+        """Get rate from current model in current noticed band."""
         self.write('puts "$SCODE [tcloutr rate 1] $SCODE"\n')
         retn = self.readResult()
         modelrate = float( retn.split()[2] )
         return modelrate
 
+    def getFlux(self, emin_keV, emax_keV):
+        """Get flux from current model in energy range given."""
+        self.write('flux %e %e\n' % (emin_keV, emax_keV))
+        self.write('puts "$SCODE [tcloutr flux] $SCODE"\n')
+        flux = float( self.readResult().split()[0] )
+        return flux
+
     def changeResponse(self, rmf, arf, minenergy_keV, maxenergy_keV):
         """Create a fake spectrum using the response and use energy range given."""
 
-        self.setModel(0.1, 1, 1, cosmo.Cosmology(0.1), 1.)
+        self.setPlaw(0.1, 1.7, 1)
         self.tempoutput = '/tmp/mbproj2d_temp_%i.fak' % os.getpid()
         deleteFile(self.tempoutput)
         self.write('data none\n')
@@ -161,28 +143,21 @@ class XSpecHelper:
         self.write('dummyrsp 0.01 100. 10000\n')
         self.throwAwayOutput()
 
-    def getCountsPerSec(self, NH_1022, T_keV, Z_solar, cosmo, ne_cm3):
-        """Return number of counts per second given parameters for a unit volume (kpc3).
-        """
-        self.setModel(NH_1022, T_keV, Z_solar, cosmo, ne_cm3)
-        self.write('puts "$SCODE [tcloutr rate 1] $SCODE"\n')
-        #self.xspecsub.stdin.flush()
-        retn = self.readResult()
-        modelrate = float( retn.split()[2] )
-        return modelrate
+    def setPlaw(self, NH_1022pcm2, gamma, norm):
+        """Set an absorbed powerlaw model."""
+        self.write(
+            'model TBabs(powerlaw) & %g & %g & %g\n' %
+            (NH_1022pcm2, gamma, norm)
+        )
+        self.throwAwayOutput()
 
-    def getFlux(
-            self, NH_1022, T_keV, Z_solar, cosmo, ne_cm3,
-            emin_keV=0.01, emax_keV=100.
-    ):
-        """Get flux in erg cm^-2 s^-1 from parcel of gas with the above parameters.
-        emin_keV and emax_keV are the energy bounds
-        """
-        self.setModel(NH_1022, T_keV, Z_solar, cosmo, ne_cm3)
-        self.write('flux %e %e\n' % (emin_keV, emax_keV))
-        self.write('puts "$SCODE [tcloutr flux] $SCODE"\n')
-        flux = float( self.readResult().split()[0] )
-        return flux
+    def setApec(self, NH_1022pcm2, T_keV, Z_solar, redshift, norm):
+        """Set an absorbed apec model."""
+        self.write(
+            'model TBabs(apec) & %g & %g & %g & %g & %g\n' %
+            (NH_1022pcm2, T_keV, Z_solar, redshift, norm)
+        )
+        self.throwAwayOutput()
 
     def finish(self):
         self.write('tclexit\n')

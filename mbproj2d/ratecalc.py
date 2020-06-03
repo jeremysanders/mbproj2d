@@ -13,11 +13,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-"""Module to get count rates for temperatures, densities and
-metallicities.
+"""Module to get count rates for different spectral models.
 
-Results are taken from xspec, interpolating between results at fixed
-temperatures and metallicities
+Results are taken from xspec, interpolating between results and
+caching between runs.
+
 """
 
 import os.path
@@ -30,8 +30,8 @@ import scipy.interpolate
 from . import utils
 from .xspechelper import XSpecContext
 
-class RateCalc:
-    """Get count rates for temperatures, densities and metallicities using xspec
+class ApecRateCalc:
+    """Get count rates for temperatures, norm and metallicities using xspec
 
     This calculates results by getting the rates for Z=0 and 1, then interpolating
     The rates are calculated for a grid of temperature measurements.
@@ -43,36 +43,41 @@ class RateCalc:
     Tmax = 60.
     Tsteps = 100
     Tlogvals = N.linspace(N.log(Tmin), N.log(Tmax), Tsteps)
+    vers = 2.0
 
     abund = 'lodd'
 
     hdffname = 'mbproj2d_cache.hdf5'
 
-    def __init__(self, cosmo, rmf, arf, emin_keV, emax_keV, NH_1022pcm2):
+    def __init__(self, rmf, arf, emin_keV, emax_keV, NH_1022pcm2, redshift):
 
         if not os.path.exists(rmf):
             raise RuntimeError('RMF %s does not exist' % rmf)
 
-        self.cosmo = cosmo
         self.rmf = rmf
         self.arf = arf
         self.emin_keV = emin_keV
         self.emax_keV = emax_keV
         self.NH_1022pcm2 = NH_1022pcm2
+        self.redshift = redshift
 
         # build a key to lookup/store in the cache file
         h = hashlib.md5()
         h.update(os.path.abspath(rmf).encode('utf8'))
         h.update(os.path.abspath(arf).encode('utf8'))
         h.update(self.abund.encode('utf8'))
-        h.update(N.array((cosmo.z, emin_keV, emax_keV, NH_1022pcm2)))
+        h.update(N.array((redshift, emin_keV, emax_keV, NH_1022pcm2, self.vers)))
         h.update(self.Tlogvals)
         self.key = 'rates_' + h.hexdigest()
 
         self._cacheRates()
 
     def _cacheRates(self):
-        """Work out rate per kpc3 for temperature values for key given for Z=0,1
+        """Cache rates for calculation later.
+
+        Works out rates for norm=1, both for Z=0 and Z=1, over the
+        grid of temperatures.
+
         """
 
         # lock hdf5 for concurrent access
@@ -88,19 +93,20 @@ class RateCalc:
                         xspec.changeResponse(
                             self.rmf, self.arf, self.emin_keV, self.emax_keV)
                         xspec.setAbund(self.abund)
-                        ZTrates = N.array([
-                            [
-                                xspec.getCountsPerSec(
-                                    self.NH_1022pcm2, T, Z, self.cosmo, 1.)
-                                for T in N.exp(self.Tlogvals)
-                            ]
-                            for Z in (0, 1)
-                        ])
+                        # get rates for Z=0 and Z=1
+                        Z0Trates, Z1Trates = [], []
+                        for T in N.exp(self.Tlogvals):
+                            xspec.setApec(self.NH_1022pcm2, T, 0, self.redshift, 1)
+                            Z0Trates.append(xspec.getRate())
+                            xspec.setApec(self.NH_1022pcm2, T, 1, self.redshift, 1)
+                            Z1Trates.append(xspec.getRate())
+
+                    ZTrates = N.array([Z0Trates, Z1Trates])
                     fcache[self.key] = ZTrates
                     attrs = fcache[self.key].attrs
                     attrs['rmf'] = self.rmf
                     attrs['arf'] = self.arf
-                    attrs['z'] = self.cosmo.z
+                    attrs['z'] = self.redshift
                     attrs['NH_1022pcm2'] = self.NH_1022pcm2
                     attrs['erange_keV'] = (self.emin_keV, self.emax_keV)
                     attrs['Tlogvals'] = self.Tlogvals
@@ -110,10 +116,10 @@ class RateCalc:
         self.Z0rates = N.log(ZTrates[0])
         self.Z1rates = N.log(ZTrates[1])
 
-    def get(self, ne_pcm3, T_keV, Z_solar):
-        """Get the count rates per kpc3 for an array of T,Z,ne.
+    def get(self, T_keV, Z_solar, norm):
+        """Get the count rates for an array of T,Z,norm
 
-        If T is out of range or Z<0, return nan values
+        If T is out of range, Z<0 or norm<0, return nan values
         """
 
         logT = N.log(T_keV)
@@ -121,9 +127,11 @@ class RateCalc:
         Z1T_ctrate = N.exp(N.interp(logT, self.Tlogvals, self.Z1rates))
 
         # use Z=0 and Z=1 count rates to evaluate at Z given
-        rates = (Z0T_ctrate + (Z1T_ctrate-Z0T_ctrate)*Z_solar) * ne_pcm3**2
+        rates = (Z0T_ctrate + (Z1T_ctrate-Z0T_ctrate)*Z_solar) * norm
         # force bad values if we go out of range
-        rates[(T_keV < self.Tmin) | (T_keV > self.Tmax) | (Z_solar < 0)] = N.nan
+        rates[
+            (T_keV < self.Tmin) | (T_keV > self.Tmax) |
+            (Z_solar < 0) | (norm < 0)] = N.nan
 
         return rates
 
@@ -159,7 +167,8 @@ class PowerlawRateCalc:
                     with XSpecContext() as xspec:
                         xspec.changeResponse(rmf, arf, emin_keV, emax_keV)
                         for gamma in self.gammas:
-                            rates.append(xspec.plawCountsPerSec(NH_1022pcm2, gamma, 1.0))
+                            xspec.setPlaw(NH_1022pcm2, gamma, 1.0)
+                            rates.append(xspec.getRate())
                     self.rates = N.array(rates)
                     fcache[self.key] = self.rates
 
@@ -173,9 +182,9 @@ class PowerlawRateCalc:
         """Get powerlaw rate for a particular gamma and norm."""
         return N.interp(gamma, self.gammas, self.rates) * norm
 
-class FluxCalc:
-    """Get fluxes for temperatures, densities and metallicities using xspec
-    (results are erg/cm2/s/kpc3)
+class ApecFluxCalc:
+    """Get fluxes for temperatures, densities and norms using xspec
+    (results are erg/cm2/s)
 
     Results are cached in a file for subsequent runs
     """
@@ -184,20 +193,21 @@ class FluxCalc:
     Tmax = 60.
     Tsteps = 100
     Tlogvals = N.linspace(N.log(Tmin), N.log(Tmax), Tsteps)
+    vers = 2.0
 
     hdffname = 'mbproj2d_cache.hdf5'
 
     abund = 'lodd'
 
-    def __init__(self, cosmo, emin_keV, emax_keV, NH_1022pcm2=0):
-        self.cosmo = cosmo
+    def __init__(self, emin_keV, emax_keV, redshift=0, NH_1022pcm2=0):
         self.emin_keV = emin_keV
         self.emax_keV = emax_keV
         self.NH_1022pcm2 = NH_1022pcm2
+        self.redshift = redshift
 
         # build a key to lookup/store in the cache file
         h = hashlib.md5()
-        h.update(N.array((cosmo.z, emin_keV, emax_keV, NH_1022pcm2)))
+        h.update(N.array((emax_keV, NH_1022pcm2, redshift, self.vers)))
         h.update(self.Tlogvals)
         self.key = 'flux_' + h.hexdigest()
 
@@ -219,20 +229,17 @@ class FluxCalc:
                     with XSpecContext() as xspec:
                         xspec.dummyResponse()
                         xspec.setAbund(self.abund)
-                        ZTfluxes = N.array([
-                            [
-                                xspec.getFlux(
-                                    self.NH_1022pcm2,
-                                    T, Z, self.cosmo, 1.,
-                                    emin_keV=self.emin_keV,
-                                    emax_keV=self.emax_keV)
-                                for T in N.exp(self.Tlogvals)
-                            ]
-                            for Z in (0, 1)
-                        ])
+                        Z0fluxes, Z1fluxes = [], []
+                        for T in N.exp(self.Tlogvals):
+                            xspec.setApec(self.NH_1022pcm2, T, 0, self.redshift, 1)
+                            Z0fluxes.append(xspec.getFlux(self.emin_keV, self.emax_keV))
+                            xspec.setApec(self.NH_1022pcm2, T, 1, self.redshift, 1)
+                            Z1fluxes.append(xspec.getFlux(self.emin_keV, self.emax_keV))
+
+                    ZTfluxes = N.array([Z0fluxes, Z1fluxes])
                     fcache[self.key] = ZTfluxes
                     attrs = fcache[self.key].attrs
-                    attrs['z'] = self.cosmo.z
+                    attrs['z'] = self.redshift
                     attrs['NH_1022pcm2'] = self.NH_1022pcm2
                     attrs['erange_keV'] = (self.emin_keV, self.emax_keV)
                     attrs['Tlogvals'] = self.Tlogvals
@@ -242,8 +249,8 @@ class FluxCalc:
         self.Z0fluxes = N.log(ZTfluxes[0])
         self.Z1fluxes = N.log(ZTfluxes[1])
 
-    def get(self, ne_pcm3, T_keV, Z_solar):
-        """Get the fluxes per kpc3 for an array of T,Z,ne."""
+    def get(self, T_keV, Z_solar, norm):
+        """Get the fluxes for an array of T, Z, norm."""
 
         T_keV = N.clip(T_keV, self.Tmin, self.Tmax)
         logT = N.log(T_keV)
@@ -251,4 +258,4 @@ class FluxCalc:
         Z1T_flux = N.exp(N.interp(logT, self.Tlogvals, self.Z1fluxes))
 
         # use Z=0 and Z=1 count fluxes to evaluate at Z given
-        return (Z0T_flux + (Z1T_flux-Z0T_flux)*Z_solar) * ne_pcm3**2
+        return (Z0T_flux + (Z1T_flux-Z0T_flux)*Z_solar) * norm

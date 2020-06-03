@@ -21,7 +21,7 @@ import h5py
 from .profile import Radii
 from . import utils
 from .utils import uprint
-from .ratecalc import FluxCalc
+from .ratecalc import ApecFluxCalc
 from .physconstants import (
     kpc_cm, keV_erg, ne_nH, mu_g, mu_e, boltzmann_erg_K, keV_K, Mpc_cm,
     yr_s, solar_mass_g, G_cgs, P_keV_to_erg, km_cm)
@@ -75,18 +75,21 @@ class Phys:
 
         # for getting absorbed fluxes
         self.fluxrange = fluxrange_keV
-        self.fluxcalc = FluxCalc(
-            model.cosmo, fluxrange_keV[0], fluxrange_keV[1],
-            NH_1022pcm2=model.NH_1022pcm2)
+        self.fluxcalc = ApecFluxCalc(
+            fluxrange_keV[0], fluxrange_keV[1],
+            NH_1022pcm2=model.NH_1022pcm2, redshift=model.cosmo.z)
         # for getting unabsorbed fluxes in rest band
         self.luminrange = luminrange_keV
-        self.fluxcalc_lumin = FluxCalc(
-            model.cosmo,
+        self.fluxcalc_lumin = ApecFluxCalc(
             luminrange_keV[0]/(1+model.cosmo.z),
             luminrange_keV[1]/(1+model.cosmo.z),
+            redshift=model.cosmo.z,
             NH_1022pcm2=0)
-        self.fluxcalc_lumin_bolo = FluxCalc(
-            model.cosmo, 0.01, 100, NH_1022pcm2=0)
+        self.fluxcalc_lumin_bolo = ApecFluxCalc(
+            0.01, 100, NH_1022pcm2=0, redshift=model.cosmo.z)
+
+        # factor to convert from ne**2 -> norm/kpc3
+        self.nesqd_to_norm = utils.calcNeSqdToNormPerKpc3(model.cosmo)
 
         # conversion factor from above to luminosity
         self.flux_to_lumin = 4*math.pi*(model.cosmo.D_L*Mpc_cm)**2
@@ -140,11 +143,12 @@ class Phys:
         Mgas_g = ne_pcm3 * self.out_vol_cm3 * mu_e*mu_g
         v['Mgas_Msun'] = Mgas_g * (1/solar_mass_g)
 
-        flux_pkpc3 = self.fluxcalc.get(ne_pcm3, T_keV, Z_solar)
+        norm_pkpc3 = self.nesqd_to_norm * ne_pcm3**2
+        flux_pkpc3 = self.fluxcalc.get(T_keV, Z_solar, norm_pkpc3)
         v['flux_cuml_%g_%g_ergpspcm2' % self.fluxrange] = N.cumsum(
             flux_pkpc3*self.out_vol_kpc3)
 
-        flux_bolo_pkpc3 = self.fluxcalc_lumin_bolo.get(ne_pcm3, T_keV, Z_solar)
+        flux_bolo_pkpc3 = self.fluxcalc_lumin_bolo.get(T_keV, Z_solar, norm_pkpc3)
         emiss_bolo = flux_bolo_pkpc3 * (self.flux_to_lumin/kpc_cm**3)
         v['L_bolo_ergpspcm3'] = emiss_bolo
 
@@ -164,24 +168,24 @@ class Phys:
         v['Mgas_cuml_Msun'] = v['Mgas_Msun']*fi + N.concatenate((
             [0], N.cumsum(v['Mgas_Msun'])[:-1]))
         Lshell = self.fluxcalc_lumin.get(
-            ne_pcm3, T_keV, Z_solar) * self.out_vol_kpc3 * self.flux_to_lumin
+            T_keV, Z_solar, norm_pkpc3) * self.out_vol_kpc3 * self.flux_to_lumin
         v['L_cuml_%g_%g_ergps' % self.luminrange] = Lshell*fi + N.concatenate((
             [0], N.cumsum(Lshell)[:-1]))
 
         return v
 
-    def loadChainFromFile(self, chainfname, burn=0, thin=10, randsample=False):
+    def loadChainFromFile(self, chainfname, burn=0, thin=10, randsamples=None):
         """Get list of parameter values from chain.
 
         :param chainfname: input chain HDF5 file
         :param burn: how many iterations to remove off input
         :param thin: discard every N entries
-        :param randsample: randomly sample before discarding
+        :param randsamples: randomly sample N samples if set
         """
 
         return utils.loadChainFromFile(
             chainfname, self.pars,
-            burn=burn, thin=thin, randsample=randsample,
+            burn=burn, thin=thin, randsamples=randsamples,
         )
 
     def computePhysChains(self, chain):
