@@ -27,3 +27,4 @@ from .mcmc import *
 from .xspechelper import *
 from .phys import *
 from .sb import *
+from .sxbkg import *

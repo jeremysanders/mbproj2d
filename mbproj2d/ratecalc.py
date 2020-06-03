@@ -127,11 +127,11 @@ class ApecRateCalc:
         Z1T_ctrate = N.exp(N.interp(logT, self.Tlogvals, self.Z1rates))
 
         # use Z=0 and Z=1 count rates to evaluate at Z given
-        rates = (Z0T_ctrate + (Z1T_ctrate-Z0T_ctrate)*Z_solar) * norm
-        # force bad values if we go out of range
-        rates[
-            (T_keV < self.Tmin) | (T_keV > self.Tmax) |
-            (Z_solar < 0) | (norm < 0)] = N.nan
+        rates = N.where(
+            (T_keV >= self.Tmin) & (T_keV <= self.Tmax) &
+            (Z_solar >= 0) & (norm >= 0),
+            (Z0T_ctrate + (Z1T_ctrate-Z0T_ctrate)*Z_solar) * norm,
+            N.nan)
 
         return rates
 

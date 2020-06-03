@@ -62,6 +62,6 @@ class Sxbkg(BackModelBase):
             rate = rateAb + rateUn
 
             if self.expmap is not None:
-                rate *= img.expmaps[self.expmap]
+                rate = img.expmaps[self.expmap] * rate
 
             imgarr += rate
