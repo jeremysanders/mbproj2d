@@ -60,6 +60,7 @@ class Sxbkg(BackModelBase):
             rateAb = self.imageRateCalcAbsorbed[img].get(Tab, Z_solar, Nab)
             rateUn = self.imageRateCalcUnabsorbed[img].get(Tun, Z_solar, Nun)
             rate = rateAb + rateUn
+            rate = rate * img.pixsize_as**2
 
             if self.expmap is not None:
                 rate = img.expmaps[self.expmap] * rate
