@@ -21,6 +21,7 @@ from .cluster import *
 from .point import *
 from .cosmo import *
 from .profile import *
+from .profile_mass import *
 from .fit import *
 from .utils import *
 from .mcmc import *

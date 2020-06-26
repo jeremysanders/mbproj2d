@@ -19,6 +19,7 @@
 Mpc_km = 3.0856776e19
 Mpc_cm = 3.0856776e24
 kpc_cm = 3.0856776e21
+kpc3_cm3 = kpc_cm**3
 
 # km in cm
 km_cm = 1e5

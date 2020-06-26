@@ -13,64 +13,33 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import math
 import numpy as N
 
 from .model import SrcModelBase
 from .ratecalc import ApecRateCalc
 from .profile import Radii
 from .fast import addSBToImg
+from .par import Par
 from . import utils
+from .physconstants import kpc_cm, kpc3_cm3, mu_e, mu_g, G_cgs, P_keV_to_erg
 
 class ClusterBase(SrcModelBase):
+    """Base cluster model class.
+
+    This does quite a lot of work for the child classes, as it takes
+    the computed ne,T,Z profiles and makes the images.
+    """
+
     def __init__(
             self, name, pars, images, cosmo=None,
-            NH_1022pcm2=0., cx=0., cy=0.):
+            NH_1022pcm2=0.,
+            maxradius_kpc=3000.,
+            cx=0., cy=0.):
         SrcModelBase.__init__(self, name, pars, images, cx=cx, cy=cy)
 
         self.cosmo = cosmo
         self.NH_1022pcm2 = NH_1022pcm2
-
-    def computeProfiles(self, pars, radii):
-        """Compute plasma profiles for use in physical profile computation
-
-        :param pars: Pars object with parameters
-        :param radii: Radii object with radii to compute for
-
-        Returns (ne_prof, T_prof, Z_prof)
-        """
-
-class ClusterNonHydro(ClusterBase):
-    """Model for a cluster, given density, temperature and metallicity profiles."""
-
-    def __init__(
-            self, name, pars, images,
-            cosmo=None,
-            NH_1022pcm2=0.,
-            ne_prof=None, T_prof=None, Z_prof=None,
-            maxradius_kpc=3000.,
-            cx=0., cy=0.
-    ):
-        """
-        :param cosmo: Cosmology object
-        :param NH_1022pcm2: Column density
-        :param ne_prof: Profile object for density
-        :param T_prof: Profile object for temperature
-        :param Z_prof: Profile object for metallicity
-        :param maxradius_kpc: Compute profile out to this radius
-        :param cx: cluster centre (arcsec)
-        :param cy: cluster centre (arcsec)
-        """
-
-        ClusterBase.__init__(
-            self, name, pars, images,
-            cx=cx, cy=cy,
-            cosmo=cosmo,
-            NH_1022pcm2=NH_1022pcm2,
-        )
-
-        self.ne_prof = ne_prof
-        self.T_prof = T_prof
-        self.Z_prof = Z_prof
 
         self.pixsize_Radii = {}  # radii indexed by pixsize
         self.image_RateCalc = {} # RateCalc for each image
@@ -103,10 +72,10 @@ class ClusterNonHydro(ClusterBase):
         T_arr = {}
         Z_arr = {}
         for pixsize, radii in self.pixsize_Radii.items():
-            ne = self.ne_prof.compute(pars, radii)
-            norm_arr[pixsize] = self.nesqd_to_norm * ne**2
-            T_arr[pixsize] = self.T_prof.compute(pars, radii)
-            Z_arr[pixsize] = self.Z_prof.compute(pars, radii)
+            neprof, Tprof, Zprof = self.computeProfiles(pars, radii)
+            norm_arr[pixsize] = self.nesqd_to_norm * neprof**2
+            T_arr[pixsize] = Tprof
+            Z_arr[pixsize] = Zprof
 
         # add profiles to each image
         for img, imgarr in zip(self.images, imgarrs):
@@ -128,6 +97,59 @@ class ClusterNonHydro(ClusterBase):
             addSBToImg(1, sb_arr, pix_cx, pix_cy, imgarr)
 
     def computeProfiles(self, pars, radii):
+        """Compute plasma profiles for use in physical profile computation
+
+        :param pars: Pars object with parameters
+        :param radii: Radii object with radii to compute for
+
+        Returns (ne_prof, T_prof, Z_prof)
+        """
+
+class ClusterNonHydro(ClusterBase):
+    """Model for a cluster, given density, temperature and metallicity profiles."""
+
+    def __init__(
+            self, name, pars, images,
+            cosmo=None,
+            NH_1022pcm2=0.,
+            ne_prof=None, T_prof=None, Z_prof=None,
+            maxradius_kpc=3000.,
+            cx=0., cy=0.
+    ):
+        """
+        :param name: name of model to apply to parameters
+        :param pars: Pars() object to define parameters
+        :param images: list of Image objects
+        :param cosmo: Cosmology object
+        :param NH_1022pcm2: Column density
+        :param ne_prof: Profile object for density
+        :param T_prof: Profile object for temperature
+        :param Z_prof: Profile object for metallicity
+        :param maxradius_kpc: Compute profile out to this radius
+        :param cx: cluster centre (arcsec)
+        :param cy: cluster centre (arcsec)
+        """
+
+        ClusterBase.__init__(
+            self, name, pars, images,
+            cosmo=cosmo,
+            NH_1022pcm2=NH_1022pcm2,
+            maxradius_kpc=maxradius_kpc,
+            cx=cx, cy=cy,
+        )
+
+        self.ne_prof = ne_prof
+        self.T_prof = T_prof
+        self.Z_prof = Z_prof
+
+    def prior(self, pars):
+        return (
+            self.ne_prof.prior(pars) +
+            self.T_prof.prior(pars) +
+            self.Z_prof.prior(pars)
+        )
+
+    def computeProfiles(self, pars, radii):
         """Compute plasma profiles.
 
         :param pars: Pars object with parameters
@@ -141,3 +163,131 @@ class ClusterNonHydro(ClusterBase):
         Z_arr = self.Z_prof.compute(pars, radii)
 
         return ne_arr, T_arr, Z_arr
+
+def computeGasAccn(radii, ne_prof):
+    """Compute acceleration due to gas mass for density profile
+    given."""
+
+    # mass in each shell
+    masses_g = ne_prof * radii.vol_kpc3 * ( kpc3_cm3 * mu_e * mu_g)
+
+    # cumulative mass interior to each shell
+    Minterior_g = N.cumsum( N.hstack( ([0.], masses_g[:-1]) ) )
+
+    # this is the mean acceleration on the shell, computed as total
+    # force from interior mass divided by the total mass:
+    #   ( Int_{r=R1}^{R2} (G/r**2) *
+    #                     (M + Int_{R=R1}^{R} 4*pi*R^2*rho*dR) *
+    #                     4*pi*r^2*rho*dR ) / (
+    #   (4./3.*pi*(R2**3-R1**3)*rho)
+    rout, rin = radii.outer_kpc*kpc_cm, radii.inner_kpc*kpc_cm
+    gmean = G_cgs*(
+        3*Minterior_g +
+        ne_prof*(mu_e*mu_g*math.pi)*(
+            (rout-rin)*((rout+rin)**2 + 2*rin**2)))  / (
+        rin**2 + rin*rout + rout**2 )
+
+    return gmean
+
+class ClusterHydro(ClusterBase):
+    """Hydrostatic model for cluster, given density, mass model and metallicity profile."""
+
+    def __init__(
+            self, name, pars, images,
+            cosmo=None,
+            NH_1022pcm2=0.,
+            ne_prof=None, mass_prof=None, Z_prof=None,
+            gas_has_mass=True,
+            maxradius_kpc=3000.,
+            cx=0., cy=0.
+    ):
+        """
+        :param name: name of model to apply to parameters
+        :param pars: Pars() object to define parameters
+        :param images: list of Image objects
+        :param cosmo: Cosmology object
+        :param NH_1022pcm2: Column density
+        :param ne_prof: Profile object for density
+        :param mass_prof: ProfileMass object for mass profile
+        :param Z_prof: Profile object for metallicity
+        :param gas_has_mass: Add gas mass to calculations
+        :param maxradius_kpc: Compute profile out to this radius
+        :param cx: cluster centre (arcsec)
+        :param cy: cluster centre (arcsec)
+        """
+
+        ClusterBase.__init__(
+            self, name, pars, images,
+            cosmo=cosmo,
+            NH_1022pcm2=NH_1022pcm2,
+            maxradius_kpc=maxradius_kpc,
+            cx=cx, cy=cy,
+        )
+
+        pars['%s_Pout_logergpcm3' % name] = Par(-32., minval=-37, maxval=-18)
+        self.ne_prof = ne_prof
+        self.mass_prof = mass_prof
+        self.Z_prof = Z_prof
+        self.gas_has_mass = gas_has_mass
+
+    def prior(self, pars):
+        return (
+            self.ne_prof.prior(pars) +
+            self.mass_prof.prior(pars) +
+            self.Z_prof.prior(pars)
+        )
+
+    def computeProfiles(self, pars, radii):
+        """Compute plasma profiles assuming hydrostatic equilibrium
+
+        :param pars: Pars object with parameters
+        :param radii: Radii object with radii to compute for
+
+        Returns (ne_prof, T_prof, Z_prof)
+        """
+
+        P0_ergpcm3 = math.exp(pars['%s_Pout_logergpcm3' % self.name].v)
+
+        Z_solar = self.Z_prof.compute(pars, radii)
+        ne_pcm3 = self.ne_prof.compute(pars, radii)
+        g_cmps2, Phi_arr = self.mass_prof.compute(pars, radii)
+
+        # prevent formulae blowing up
+        ne_pcm3 = N.clip(ne_pcm3, 1e-99, 1e99)
+
+        # optionally include effect of gas mass on accn
+        if self.gas_has_mass:
+            g_cmps2 += computeGasAccn(radii, ne_pcm3)
+
+        # changes in pressure in outer and inner halves of bin (around centre)
+        # this is a bit more complex than needed, but we can change the midpt
+        P_pcm = g_cmps2 * ne_pcm3 * (mu_e*mu_g)
+        mid_cm = radii.cent_cm
+        deltaP_out = (radii.outer_cm - mid_cm) * P_pcm
+        deltaP_in = (mid_cm - radii.inner_cm) * P_pcm
+
+        # combine halves and include outer pressure to get incremental deltaP
+        deltaP_halves = N.ravel( N.column_stack((deltaP_in, deltaP_out)) )
+        deltaP_ergpcm3 = N.concatenate((deltaP_halves[1:], [P0_ergpcm3]))
+
+        # add up contributions inwards to get total pressure,
+        # discarding pressure between shells
+        P_ergpcm3 = N.cumsum(deltaP_ergpcm3[::-1])[::-2]
+
+        # calculate temperatures given pressures ad densities
+        T_keV = P_ergpcm3 / (P_keV_to_erg * ne_pcm3)
+
+        T_keV = N.clip(T_keV, 0.1, 50)
+
+        return ne_pcm3, T_keV, Z_solar
+
+    def computeMassProfile(self, pars):
+        """Compute g and potential given parameters."""
+
+        g_prof, pot_prof = self.mass_prof.computeProf(pars)
+
+        if self.gas_has_mass:
+            ne_prof = self.ne_prof.computeProf(pars)
+            g_prof += computeGasAccn(self.annuli, ne_prof)
+
+        return g_prof, pot_prof

@@ -29,12 +29,17 @@ class Radii:
         self.rshell_kpc = rshell_kpc
 
         self.edges_kpc = N.arange(num+1)*rshell_kpc
-        self.inner_kpc = self.edges_kpc[:-1]
-        self.outer_kpc = self.edges_kpc[1:]
-        self.cent_kpc = 0.5*(self.edges_kpc[1:]+self.edges_kpc[:-1])
+        self.inner_kpc = rin = self.edges_kpc[:-1]
+        self.inner_cm = rin * kpc_cm
+        self.outer_kpc = rout = self.edges_kpc[1:]
+        self.outer_cm = rout * kpc_cm
+        self.cent_kpc = 0.5*(rout+rin)
+        self.cent_cm = self.cent_kpc * kpc_cm
         self.cent_logkpc = N.log(self.cent_kpc)
-        self.area_kpc2 = math.pi * utils.diffSqr(self.outer_kpc, self.inner_kpc)
-        self.vol_kpc3 = (4/3*math.pi)*utils.diffCube(self.outer_kpc, self.inner_kpc)
+        # if shells are constant density, this is the mass-averaged radius
+        self.massav_kpc = 0.75 * utils.diffQuart(rout, rin) / utils.diffCube(rout, rin)
+        self.area_kpc2 = math.pi * utils.diffSqr(rout, rin)
+        self.vol_kpc3 = (4/3*math.pi)*utils.diffCube(rout, rin)
 
         # matrix to convert from emissivity (per kpc3) to surface
         # brightness (per kpc2). projectionVolumeMatrix produces a
@@ -42,7 +47,6 @@ class Radii:
         # to divide by the annulus area.
         self.proj_matrix = (
             utils.projectionVolumeMatrix(self.edges_kpc) / self.area_kpc2[:,N.newaxis] )
-
     def project(self, emissivity_pkpc3):
         """Project from emissivity profile to surface brightness (per kpc2)."""
         return self.proj_matrix.dot(emissivity_pkpc3).astype(N.float32)
@@ -55,9 +59,26 @@ class ProfileBase:
         """Compute profile at centres of bins, given edges."""
         return N.zeros(radii.num)
 
-    def prior(self):
+    def prior(self, pars):
         """Return any prior associated with this profile."""
         return 0
+
+class ProfileSum(ProfileBase):
+    """Add one or more profiles to make a total profile."""
+
+    def __init__(self, name, pars, subprofiles):
+        ProfileBase.__init__(self, name, pars)
+        self.subprofs = subprofiles
+
+    def compute(self, pars, radii):
+        compprofs = []
+        for prof in self.subprofs:
+            compprofs.append(prof.compute(pars, radii))
+        total = N.sum(compprofs, axis=0)
+        return total
+
+    def prior(self, pars):
+        return sum((prof.prior(pars) for prof in self.subprofs))
 
 class ProfileFlat(ProfileBase):
     def __init__(self, name, pars, defval=0., log=False):

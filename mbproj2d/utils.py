@@ -29,19 +29,23 @@ import pyfftw
 from pyfftw import zeros_aligned, ones_aligned, empty_aligned
 pyfftw.interfaces.cache.enable()
 
-from .physconstants import kpc_cm, ne_nH, Mpc_cm
+from .physconstants import kpc_cm, ne_nH, Mpc_cm, kpc3_cm3
 
 def uprint(*args, file=sys.stdout):
     """Unbuffered print."""
     print(*args, file=file)
     file.flush()
 
+def diffQuart(a, b):
+    """Calculate a**4-b**4."""
+    return (a**2+b**2)*(a+b)*(a-b)
+
 def diffCube(a, b):
-    """Difference between a**3 and b**3."""
+    """Calculate a**3-b**3."""
     return (a-b)*(a*a+a*b+b*b)
 
 def diffSqr(a, b):
-    """Difference between a**2 and b**2."""
+    """Calculate a**2-b**2."""
     return (a+b)*(a-b)
 
 def projectionVolume(R1, R2, y1, y2):
@@ -100,7 +104,7 @@ def calcNeSqdToNormPerKpc3(cosmo):
     """Compute factor to convert a ne-squared to a norm per kpc3."""
     return (
         1e-14 / (4*math.pi*(cosmo.D_A*Mpc_cm * (1.+cosmo.z))**2) /
-        ne_nH * kpc_cm**3
+        ne_nH * kpc3_cm3
     )
 
 def symmetriseErrors(data):

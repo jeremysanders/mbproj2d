@@ -24,7 +24,7 @@ from .utils import uprint
 from .ratecalc import ApecFluxCalc
 from .physconstants import (
     kpc_cm, keV_erg, ne_nH, mu_g, mu_e, boltzmann_erg_K, keV_K, Mpc_cm,
-    yr_s, solar_mass_g, G_cgs, P_keV_to_erg, km_cm)
+    yr_s, solar_mass_g, G_cgs, P_keV_to_erg, km_cm, kpc3_cm3)
 
 # we want to define the cumulative values half way in the
 # shell, so we have to split the luminosity and mass across
@@ -105,7 +105,7 @@ class Phys:
         self.out_centre_kpc = 0.5*(self.out_edges_kpc[:-1]+self.out_edges_kpc[1:])
         self.out_vol_kpc3 = (4/3*math.pi)*utils.diffCube(
             self.out_edges_kpc[1:],self.out_edges_kpc[:-1])
-        self.out_vol_cm3 = self.out_vol_kpc3 * kpc_cm**3
+        self.out_vol_cm3 = self.out_vol_kpc3 * kpc3_cm3
 
         # calculate function to go from linearily binned profiles to
         # output profiles, depending on the average method chosen
@@ -149,7 +149,7 @@ class Phys:
             flux_pkpc3*self.out_vol_kpc3)
 
         flux_bolo_pkpc3 = self.fluxcalc_lumin_bolo.get(T_keV, Z_solar, norm_pkpc3)
-        emiss_bolo = flux_bolo_pkpc3 * (self.flux_to_lumin/kpc_cm**3)
+        emiss_bolo = flux_bolo_pkpc3 * (self.flux_to_lumin/kpc3_cm3)
         v['L_bolo_ergpspcm3'] = emiss_bolo
 
         v['H_ergpcm3'] = (5/2) * v['ne_pcm3'] * (1 + 1/ne_nH) * v['T_keV'] * keV_erg
