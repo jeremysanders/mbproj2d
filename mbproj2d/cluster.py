@@ -105,6 +105,11 @@ class ClusterBase(SrcModelBase):
         Returns (ne_prof, T_prof, Z_prof)
         """
 
+    def computeMassProfile(self, pars, radii):
+        """Return g and Phi profiles for cluster, if available."""
+        empty = N.zeros(radii.num)
+        return empty, empty
+
 class ClusterNonHydro(ClusterBase):
     """Model for a cluster, given density, temperature and metallicity profiles."""
 
@@ -192,6 +197,10 @@ def computeGasAccn(radii, ne_prof):
 class ClusterHydro(ClusterBase):
     """Hydrostatic model for cluster, given density, mass model and metallicity profile."""
 
+    # we clip to range otherwise the fitting fails
+    Tmin = 0.06
+    Tmax = 60.
+
     def __init__(
             self, name, pars, images,
             cosmo=None,
@@ -277,17 +286,17 @@ class ClusterHydro(ClusterBase):
         # calculate temperatures given pressures ad densities
         T_keV = P_ergpcm3 / (P_keV_to_erg * ne_pcm3)
 
-        T_keV = N.clip(T_keV, 0.1, 50)
+        T_keV = N.clip(T_keV, self.Tmin, self.Tmax)
 
         return ne_pcm3, T_keV, Z_solar
 
-    def computeMassProfile(self, pars):
+    def computeMassProfile(self, pars, radii):
         """Compute g and potential given parameters."""
 
-        g_prof, pot_prof = self.mass_prof.computeProf(pars)
+        g_prof, pot_prof = self.mass_prof.compute(pars, radii)
 
         if self.gas_has_mass:
-            ne_prof = self.ne_prof.computeProf(pars)
-            g_prof += computeGasAccn(self.annuli, ne_prof)
+            ne_prof = self.ne_prof.compute(pars, radii)
+            g_prof += computeGasAccn(radii, ne_prof)
 
         return g_prof, pot_prof

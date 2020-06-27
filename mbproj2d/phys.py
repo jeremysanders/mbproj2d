@@ -103,6 +103,7 @@ class Phys:
             raise RuntimeError('Invalid binning')
 
         self.out_centre_kpc = 0.5*(self.out_edges_kpc[:-1]+self.out_edges_kpc[1:])
+        self.out_centre_cm = self.out_centre_kpc * kpc_cm
         self.out_vol_kpc3 = (4/3*math.pi)*utils.diffCube(
             self.out_edges_kpc[1:],self.out_edges_kpc[:-1])
         self.out_vol_cm3 = self.out_vol_kpc3 * kpc3_cm3
@@ -123,7 +124,7 @@ class Phys:
         else:
             raise RuntimeError('Invalid averaging mode')
 
-    def calc(self, ne_pcm3, T_keV, Z_solar):
+    def calc(self, ne_pcm3, T_keV, Z_solar, g_cmps2, phi_ergpg):
         """Given input profiles, calculate output profiles.
 
         These are assumed to have the output radii spacing
@@ -134,6 +135,8 @@ class Phys:
         v['ne_pcm3'] = ne_pcm3
         v['T_keV'] = T_keV
         v['Z_solar'] = Z_solar
+        v['g_cmps2'] = g_cmps2
+        v['potential_ergpg'] = phi_ergpg
 
         v['P_keVpcm3'] = ne_pcm3 * T_keV
         v['P_ergpcm3'] = T_keV * ne_pcm3 * P_keV_to_erg
@@ -172,6 +175,48 @@ class Phys:
         v['L_cuml_%g_%g_ergps' % self.luminrange] = Lshell*fi + N.concatenate((
             [0], N.cumsum(Lshell)[:-1]))
 
+        # total mass (computed from g)
+        v['Mtot_cuml_Msun'] = v['g_cmps2']*self.out_centre_cm**2/G_cgs/solar_mass_g
+        # and the gas fraction (<r)
+        v['fgas_cuml'] = v['Mgas_cuml_Msun'] / v['Mtot_cuml_Msun']
+        # free fall fime
+        rho_gpcm3 = (3/4./N.pi)*v['Mtot_cuml_Msun']*solar_mass_g / self.out_centre_cm**3
+        v['tff_yr'] = N.sqrt(3*N.pi/32/G_cgs/rho_gpcm3) / yr_s
+        v['tcool_tff'] = v['tcool_yr']/v['tff_yr']
+
+        # Mdots
+        Lshell_ergps = v['L_bolo_ergpspcm3'] * self.out_vol_cm3
+        density_gpcm3 = v['ne_pcm3'] * mu_e * mu_g
+        v['H_ergpg'] = v['H_ergpcm3'] / density_gpcm3
+        v['Mdotpurecool_Msunpyr'] = (
+            Lshell_ergps / v['H_ergpg'] / solar_mass_g * yr_s)
+        v['Mdotpurecool_cuml_Msunpyr'] = N.cumsum(v['Mdotpurecool_Msunpyr'])
+
+        # output mdot values go here
+        v['Mdot_Msunpyr'] = N.zeros(nshells)
+        v['Mdot_cuml_Msunpyr'] = N.zeros(nshells)
+
+        # change in potential and enthalpy across each shell
+        delta_pot_ergpg = N.concatenate((
+                [0], v['potential_ergpg'][1:]-v['potential_ergpg'][:-1]))
+        delta_H_ergpg = N.concatenate((
+                [0], v['H_ergpg'][1:]-v['H_ergpg'][:-1]))
+
+        Mdotcuml_gps = 0.
+        for i in range(nshells):
+            # total energy going into mdot in this shell, subtracting contribution
+            # of matter which flows inwards
+            E_tot_ergps = (
+                Lshell_ergps[i] -
+                Mdotcuml_gps*(delta_pot_ergpg[i] + delta_H_ergpg[i]))
+            # energy comes from enthalpy plus change in potential
+            E_tot_ergpg = v['H_ergpg'][i] + delta_pot_ergpg[i]
+
+            Mdot_gps = E_tot_ergps / E_tot_ergpg
+            v['Mdot_Msunpyr'][i] = Mdot_gps / solar_mass_g * yr_s
+            Mdotcuml_gps += Mdot_gps
+            v['Mdot_cuml_Msunpyr'][i] = Mdotcuml_gps / solar_mass_g * yr_s
+
         return v
 
     def loadChainFromFile(self, chainfname, burn=0, thin=10, randsamples=None):
@@ -207,12 +252,15 @@ class Phys:
             pars.setFree(parvals)
 
             ne_arr, T_arr, Z_arr = self.model.computeProfiles(pars, self.radii)
+            g_arr, phi_arr = self.model.computeMassProfile(pars, self.radii)
 
             ne_resamp = self.rebinfn(ne_arr)
             T_resamp = self.rebinfn(T_arr)
             Z_resamp = self.rebinfn(Z_arr)
+            g_resamp = self.rebinfn(g_arr)
+            phi_resamp = self.rebinfn(phi_arr)
 
-            physvals = self.calc(ne_resamp, T_resamp, Z_resamp)
+            physvals = self.calc(ne_resamp, T_resamp, Z_resamp, g_resamp, phi_resamp)
             for name, vals in physvals.items():
                 if name not in data:
                     data[name] = []
