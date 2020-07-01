@@ -17,6 +17,7 @@
 
 from setuptools import Extension, setup
 from Cython.Build import cythonize
+import numpy as np
 
 fastsourcefiles = [
     'mbproj2d/fast/fast.pyx',
@@ -32,6 +33,7 @@ extensions = [
             '-mavx2',
             '-std=c++11',
         ],
+        include_dirs=[np.get_include()]
     ),
 ]
 
