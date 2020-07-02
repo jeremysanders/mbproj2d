@@ -210,7 +210,7 @@ class MCMC:
             # likelihoods for each walker, iteration
             f.create_dataset(
                 'likelihood',
-                data=self.sampler.lnprobability[:, ::thin].astype(N.float32),
+                data=self.sampler.lnprobability[:, ::thin].astype(N.float64),
                 compression=True,
                 shuffle=True
             )
