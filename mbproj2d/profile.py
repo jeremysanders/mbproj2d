@@ -252,3 +252,46 @@ class ProfileVikhDensity(ProfileBase):
 
         ne = N.sqrt(retn_sqd)
         return ne
+
+class ProfileMcDonaldT(ProfileBase):
+    """Temperature model from McDonald+14, equation 1
+
+    Log values are are log_e
+    """
+
+    def __init__(self, name, pars):
+        ProfileBase.__init__(self, name, pars)
+
+        pars['%s_logT0' % name] = Par(1, minval=-2.3, maxval=4)
+        pars['%s_logTmin' % name] = Par(1.2, minval=-2.3, maxval=4)
+        pars['%s_logrc' % name] = Par(5.3, minval=-2.3, maxval=8.5)
+        pars['%s_logrt' % name] = Par(6.2, minval=0, maxval=8.5)
+        pars['%s_acool' % name] = Par(2., minval=0, maxval=8.5)
+        pars['%s_a' % name] = Par(0., minval=-4, maxval=4.)
+        pars['%s_b' % name] = Par(1., minval=0.001, maxval=4.)
+        pars['%s_c' % name] = Par(1., minval=0, maxval=4.)
+
+    def compute(self, pars, radii):
+        n = self.name
+        T0 = math.exp(pars['%s_logT0' % n].v)
+        Tmin = math.exp(pars['%s_logTmin' % n].v)
+        rc = math.exp(pars['%s_logrc' % n].v)
+        rt = math.exp(pars['%s_logrt' % n].v)
+        acool = pars['%s_acool' % n].v
+        a = pars['%s_a' % n].v
+        b = pars['%s_b' % n].v
+        c = pars['%s_c' % n].v
+
+        x = radii.cent_kpc
+        x_rc = x*(1/rc)
+        x_rt = x*(1/rt)
+
+        T = (
+            T0
+            * (x_rc**acool + (Tmin/T0))
+            / (1 + x_rc**acool)
+            * x_rt**-a
+            / (1 + x_rt**b)**(c/b)
+            )
+
+        return T
