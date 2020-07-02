@@ -214,6 +214,34 @@ class BackModelFlat(BackModelBase):
                 v *= image.expmaps[self.expmap]
             imgarr += v*scale
 
+class BackModelImage(BackModelBase):
+    """Background model based on images."""
+
+    def __init__(
+            self, name, pars, images, backimgarrs, expmap=None,
+    ):
+        """A flat background model.
+
+        :param name: name of model
+        :param pars: dict of parameters
+        :param images: list of data.Image objects
+        :param backimgarrs: images to use as background for each Image
+        """
+        BackModelBase.__init__(self, name, pars, images, expmap=expmap)
+        for image in images:
+            pars['%s_%s_logscale' % (name, image.img_id)] = Par(0.0, frozen=True)
+        pars['%s_logscale' % name] = Par(
+            0.0, prior=PriorGaussian(0.0, 0.05), frozen=True)
+        self.backimgarrs = backimgarrs
+
+    def compute(self, pars, imgarrs):
+        scale = math.exp(pars['%s_logscale' % self.name].v)
+        for image, imgarr, backimgarr in zip(self.images, imgarrs, self.backimgarrs):
+            v = math.exp(pars['%s_%s_logscale' % (self.name, image.img_id)].v)
+            yw, xw = backimgarr.shape
+
+            imgarr[:yw,:xw] += (v*scale)*backimgarr
+
 class SrcModelBase:
     """Base class for source models."""
 
