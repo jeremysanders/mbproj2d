@@ -134,7 +134,7 @@ class ProfileInterpol(ProfileBase):
         """
 
         ProfileBase.__init__(self, name, pars)
-        for i in len(rbin_edges_kpc)-1:
+        for i in range(len(rcent_kpc)):
             pars['%s_%03i' % (name, i)] = Par(defval)
         self.rcent_logkpc = N.log(rcent_kpc)
         self.log = log
@@ -142,7 +142,7 @@ class ProfileInterpol(ProfileBase):
     def compute(self, pars, radii):
         pvals = N.array([
             pars['%s_%03i' % (self.name, i)].v
-            for i in range(radii.num)
+            for i in range(len(self.rcent_logkpc))
             ])
         vals = N.interp(radii.cent_logkpc, self.rcent_logkpc, pvals)
         if self.log:
