@@ -84,6 +84,12 @@ class XSpecHelper:
     def write(self, text):
         self.xspecsub.stdin.write(text)#.encode('utf-8'))
 
+    def loadXCM(self, xcmfile):
+        """Load an xcm file into xspec."""
+        assert os.path.exists(xcmfile)
+        self.write('@%s\n' % xcmfile)
+        self.throwAwayOutput()
+
     def throwAwayOutput(self):
         """Ignore output from program until no more data available."""
         while True:
@@ -130,6 +136,10 @@ class XSpecHelper:
         self.tempoutput = '/tmp/mbproj2d_temp_%i.fak' % os.getpid()
         deleteFile(self.tempoutput)
         self.write('data none\n')
+
+        if arf is None:
+            arf = 'none'
+
         self.write('fakeit none & %s & %s & y & foo & %s & 1.0\n' %
             (rmf, arf, self.tempoutput))
 

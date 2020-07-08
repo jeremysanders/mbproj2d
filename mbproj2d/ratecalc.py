@@ -259,3 +259,50 @@ class ApecFluxCalc:
 
         # use Z=0 and Z=1 count fluxes to evaluate at Z given
         return (Z0T_flux + (Z1T_flux-Z0T_flux)*Z_solar) * norm
+
+class XspecModelRateCalc:
+    """Get rates for an xspec model.
+
+    Returns rate in band for a model xcm file
+    """
+
+    hdffname = 'mbproj2d_cache.hdf5'
+
+    def __init__(self, rmf, arf, emin_keV, emax_keV, xcmfile):
+        self.rmf = rmf
+        self.arf = arf
+        self.emin_keV = emin_keV
+        self.emax_keV = emax_keV
+        self.xcmfile = xcmfile
+
+        # build a key to lookup/store in the cache file
+        # unclear whether we should bother caching...
+        h = hashlib.md5()
+        with open(xcmfile, 'rb') as f:
+            h.update(f.read())
+        h.update(os.path.abspath(rmf).encode('utf8'))
+        h.update(os.path.abspath(arf).encode('utf8'))
+        h.update(emin_keV)
+        h.update(emax_keV)
+        self.key = 'xcmrates_' + h.hexdigest()
+
+        self.rate = None
+        self._cacheRates(self)
+
+    def _cacheRates(self):
+
+        with utils.WithLock(self.hdffname + '.lockdir') as lock:
+            with h5py.File(self.hdffname, 'a') as fcache:
+
+                if self.key in fcache:
+                    self.rate = float(N.array(fcache[self.key]))
+                else:
+                    with XSpecContext() as xspec:
+                        xspec.changeResponse(
+                            self.rmf, self.arf, self.emin_keV, self.emax_keV)
+                        xspec.loadXCM(self.xcmfile)
+                        self.rate = xspec.getRate()
+                        fcache[self.key] = self.rate
+
+    def get(self):
+        return self.rate

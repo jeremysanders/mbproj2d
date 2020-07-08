@@ -19,8 +19,6 @@ from scipy.special import gammaln
 from . import utils
 from . import fast
 
-
-
 class Image:
     """Image class details images to fit."""
 
