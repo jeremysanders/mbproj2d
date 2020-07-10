@@ -174,6 +174,8 @@ class PowerlawRateCalc:
 
                     # attributes to track cached items
                     attrs = fcache[self.key].attrs
+                    attrs['rmf'] = rmf
+                    attrs['arf'] = arf
                     attrs['NH_1022pcm2'] = NH_1022pcm2
                     attrs['erange_keV'] = (emin_keV, emax_keV)
                     attrs['gammas'] = self.gammas
@@ -269,11 +271,6 @@ class XspecModelRateCalc:
     hdffname = 'mbproj2d_cache.hdf5'
 
     def __init__(self, rmf, arf, emin_keV, emax_keV, xcmfile):
-        self.rmf = rmf
-        self.arf = arf
-        self.emin_keV = emin_keV
-        self.emax_keV = emax_keV
-        self.xcmfile = xcmfile
 
         # build a key to lookup/store in the cache file
         # unclear whether we should bother caching...
@@ -282,27 +279,25 @@ class XspecModelRateCalc:
             h.update(f.read())
         h.update(os.path.abspath(rmf).encode('utf8'))
         h.update(os.path.abspath(arf).encode('utf8'))
-        h.update(emin_keV)
-        h.update(emax_keV)
-        self.key = 'xcmrates_' + h.hexdigest()
-
-        self.rate = None
-        self._cacheRates(self)
-
-    def _cacheRates(self):
+        h.update(N.array([emin_keV, emax_keV]))
+        key = 'xcmrates_' + h.hexdigest()
 
         with utils.WithLock(self.hdffname + '.lockdir') as lock:
             with h5py.File(self.hdffname, 'a') as fcache:
 
-                if self.key in fcache:
-                    self.rate = float(N.array(fcache[self.key]))
+                if key in fcache:
+                    self.rate = float(N.array(fcache[key]))
                 else:
                     with XSpecContext() as xspec:
-                        xspec.changeResponse(
-                            self.rmf, self.arf, self.emin_keV, self.emax_keV)
-                        xspec.loadXCM(self.xcmfile)
+                        xspec.changeResponse(rmf, arf, emin_keV, emax_keV)
+                        xspec.loadXCM(xcmfile)
                         self.rate = xspec.getRate()
-                        fcache[self.key] = self.rate
+                        fcache[key] = self.rate
+                        attrs = fcache[key].attrs
+                        attrs['rmf'] = rmf
+                        attrs['arf'] = arf
+                        attrs['erange_keV'] = (emin_keV, emax_keV)
+                        attrs['xcmfile'] = xcmfile
 
     def get(self):
         return self.rate
