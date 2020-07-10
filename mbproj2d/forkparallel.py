@@ -24,6 +24,7 @@ import struct
 import select
 import signal
 import pickle
+import traceback
 
 # special exit code to break out of child
 exitcode = b'*[EX!T}*FORK'
@@ -94,6 +95,7 @@ class ForkBase:
                         retn.append(res)
                 except Exception as e:
                     # send back an exception
+                    e.backtrace = traceback.format_exc()
                     retn = e
 
                 # send back the result
@@ -284,7 +286,9 @@ class ForkQueue(ForkBase):
             for sock in read:
                 res = recvItem(sock)
                 if isinstance(res, Exception):
-                    raise res
+                    raise RuntimeError(
+                        'Exception inside parallel section:\n%s' % (
+                            res.backtrace))
                 idx = sockchunks[sock]
                 retn[idx*chunksize:(idx+1)*chunksize] = res
                 del sockchunks[sock]
