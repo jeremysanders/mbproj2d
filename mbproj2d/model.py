@@ -210,7 +210,7 @@ class BackModelFlat(BackModelBase):
             if self.log:
                 v = math.exp(v)
             if self.normarea:
-                v *= image.pixsize_as
+                v *= image.pixsize_as**2
             if self.expmap is not None:
                 v *= image.expmaps[self.expmap]
             imgarr += v*scale
