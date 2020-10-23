@@ -32,6 +32,7 @@ class Image:
             mask=None,
             psf=None,
             origin=(0,0),
+            wcs=None,
             optimal_size=True,
     ):
         """
@@ -46,6 +47,7 @@ class Image:
         :param mask: numpy mask array (None means no mask)
         :param psf: PSF object
         :param origin: position in pixels (y,x) coordinates are measured relative to (should be same position in all images)
+        :param wcs: optional WCS stored with this image
         :param optimal_size: expand images to be optimal size for PSF convolution
         """
 
@@ -56,6 +58,7 @@ class Image:
         self.arf = arf
         self.pixsize_as = pixsize_as
         self.invpixsize = 1/pixsize_as
+        self.wcs = wcs
 
         if optimal_size:
             imagearr, expmaps, mask = self._expandOptimal(

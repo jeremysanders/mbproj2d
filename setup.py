@@ -44,11 +44,12 @@ install_requires = [
     'pyfftw',
     'h5py',
     'emcee',
+    'astropy',
 ]
 
 setup(
     name = 'MBProj2D',
-    version = '0.1',
+    version = '0.2',
     description = 'Forward fitting cluster modelling',
     author = 'Jeremy Sanders',
     author_email = 'jeremy@jeremysanders.net',

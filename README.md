@@ -19,10 +19,10 @@ Requirements:
  - pyfftw
  - h5py
  - emcee
+ - astropy
 
 Usage notes:
 
  - If using a PSF model, I suggest fitting a larger region of the sky than necessary, but masking out the edges. Do not zero the exposure map in these regions. The PSF modelling uses a FFT convolution, so the model will wrap around at the edges.
  
  - Input images must have even numbers of pixels on each axis
- 

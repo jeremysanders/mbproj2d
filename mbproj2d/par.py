@@ -254,3 +254,18 @@ class Pars(dict):
 
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
+
+    def load(self, filename, nofail=False):
+        """Load parameters from file.
+
+        if nofail, then we skip if the file does not exist.
+        """
+        try:
+            with open(filename, 'rb') as f:
+                pars = pickle.load(f)
+        except OSError as e:
+            if nofail:
+                return
+            else:
+                raise e
+        self.update(pars)
