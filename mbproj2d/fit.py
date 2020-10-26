@@ -73,14 +73,17 @@ class Fit:
 
     def run(
             self,
-            verbose=True, sigdelta=0.01, maxiter=10,
+            verbose=True, sigdelta=0.01, maxloops=10, maxfititer=None,
             methods=('Nelder-Mead', 'Powell'),
+            fitoptions=None,
     ):
         """
         :param verbose: show fit progress
         :param sigdelta: what is a significant change in fit statistic
-        :param maxiter: fit a maximum number of times with improvement before exiting
+        :param maxfititer: maximum number of iterations to pass to fit routine
+        :param maxloops: fit a maximum number of times with improvement before exiting
         :param methods: iterate through these fitting methods to look for improvement
+        :param fitoptions: options to pass to minimizer
 
         Returns (fit_like, success) where success indicates less than maximum number of iterations were done.
         """
@@ -104,13 +107,19 @@ class Fit:
 
         success = True
         fpars = self.pars.freeVals()
-        for i in range(maxiter):
+        for i in range(maxloops):
             if verbose:
                 utils.uprint('Fitting (iteration %i)' % (i+1))
 
+            options = {}
+            if fitoptions:
+                options.update(fitoptions)
+            if maxfititer:
+                options['maxiter'] = maxfititer
+
             for method in methods:
                 fitpars = scipy.optimize.minimize(
-                    fitfunc, fpars, method=method)
+                    fitfunc, fpars, method=method, options=options)
                 fpars = fitpars.x
                 flike = -fitpars.fun
 
