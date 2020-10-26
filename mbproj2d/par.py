@@ -17,6 +17,10 @@
 import sys
 import math
 import pickle
+import fnmatch
+import re
+import itertools
+
 import numpy as N
 import scipy.stats
 
@@ -256,17 +260,70 @@ class Pars(dict):
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
 
-    def load(self, filename, nofail=False):
+    def load(self, filename, skip=False):
         """Load parameters from file.
 
-        if nofail, then we skip if the file does not exist.
+        :param filename: filename to load from
+        :param skipmissing: if set, then we continue if file not found
         """
         try:
             with open(filename, 'rb') as f:
                 pars = pickle.load(f)
         except OSError as e:
-            if nofail:
+            if skip:
                 return
             else:
                 raise e
+
+        if len(sel) != len(pars):
+            raise RuntimeError("Number of parameters loaded does not match number of parameters")
+
         self.update(pars)
+
+    def match(self, pattern, use_re=False):
+        """Returns a dictionary of parameters whose names match a pattern.
+
+        :param pattern: glob-style parameter match, e.g. ne_* or abc_???_alpha (default), a regular expression string (if use_re)
+        :param use_re: if set, treat pattern as a regular expression
+
+        Returns {'name': par, ...}
+        """
+        out = {}
+        for name in self:
+            if ( (use_re and re.match(pattern, name) is not None) or
+                 (not use_re and fnmatch.fnmatchcase(name, pattern)) ):
+                out[name] = self[name]
+        return out
+
+    def matchFreeze(self, pattern, use_re=False):
+        """Freeze parameters which match the name given.
+
+        :param pattern: glob-style parameter match, e.g. ne_* or abc_???_alpha
+        :param use_re: if set, treat pattern as a regular expression
+        """
+        for par in self.match(pattern, use_re=use_re).values():
+            par.frozen = True
+
+    def matchThaw(self, pattern, use_re=False):
+        """Thaw parameters which match the name given.
+
+        :param pattern: glob-style parameter match, e.g. ne_* or abc_???_alpha.
+        :param use_re: if set, treat pattern as a regular expression
+        """
+        for par in self.match(pattern, use_re=use_re).values():
+            par.frozen = False
+
+    def matchSet(self, pattern, val, use_re=False):
+        """Set values for parameters which match the name given.
+
+        :param pattern: glob-style parameter match, e.g. ne_* or abc_???_alpha.
+        :param val: constant (to set to same value) or iterable (to set to sequence)
+        """
+
+        try:
+            valiter = iter(val)
+        except TypeError:
+            valiter = itertools.repeat(val)
+
+        for par in self.match(pattern, use_re=use_re).values():
+            par.val = next(valiter)
