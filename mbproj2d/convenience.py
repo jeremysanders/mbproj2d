@@ -33,22 +33,19 @@ def imageLoad(img_fname, exp_fname,
               band_name=None):
     """A helper to construct an Image from input fits images
 
-    img_fname: input fits image filename
-    exp_fname: input exposure fits image filename
-    rmf: response filename
-    arf: arf filename
-    emin_keV: minimum energy (keV)
-    emax_keV: maximum energy (keV)
+    :param img_fname: input fits image filename
+    :param exp_fname: input exposure fits image filename
+    :param rmf: response filename
+    :param arf: arf filename
+    :param emin_keV: minimum energy (keV)
+    :param emax_keV: maximum energy (keV)
+    :param exp_novig_fname: unvignetted exposure filename (optional)
+    :param origin: origin to measure coordinates from (ra_deg, dec_deg) or SkyCoord.  By default uses FITS reference coordinate.
+    :param pix_origin: override above with origin (y,x) in pixels (optional)
+    :param mask_fname: name of filename to get mask image (uses exposure>0 by default)
+    :param band_name: name for band (default "X.XX_Y.YY" with emin/emax)
     
-    Optional:
-     exp_novig_fname: unvignetted exposure filename
-     origin: origin to measure coordinates from (ra_deg, dec_deg) or SkyCoord.
-       By default uses FITS reference coordinate.
-     pix_origin: override above with origin (y,x) in pixels
-     mask_fname: name of filename to get mask image
-     band_name: name for band (default X.XX_Y.YY with emin/emax)
-
-    Exposure maps loaded are given names 'expmap' and optionally 'expmap_novig'
+    Exposure maps loaded in the Band object are given names 'expmap' and optionally 'expmap_novig'
     """
 
     if not band_name:
@@ -86,10 +83,11 @@ def imageLoad(img_fname, exp_fname,
 
     # optional non-vignetted exposure
     if exp_novig_fname:
-        expf = fits.open(exp_novig_fname, 'readonly')
-        expimg = expf[0].data
-        expf.close()
-        expmaps['expmap_novig'] = expmap
+        expnvf = fits.open(exp_novig_fname, 'readonly')
+        expimgnv = expnvf[0].data
+        expnvf.close()
+        expmaps['expmap_novig'] = expimgnv
+        assert expimgnv.shape == expimg.shape
 
     # load mask image
     if mask_fname:
@@ -124,6 +122,9 @@ def PSFLoad(filename, hdu):
     """Load a PSF image from filename given index/name of HDU.
 
     PSF should have CRPIX1/2 as origin and CDELT1 as pixel size (arcsec)
+
+    :param filename: FITS filename containing PSF
+    :param hdu: HDU name/index for PSF
     """
 
     psff = fits.open(filename, 'readonly')
