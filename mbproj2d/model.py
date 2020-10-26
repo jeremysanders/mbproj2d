@@ -212,9 +212,66 @@ class BackModelFlat(BackModelBase):
                 v = math.exp(v)
             if self.normarea:
                 v *= image.pixsize_as**2
+            v *= scale
             if self.expmap is not None:
                 v *= image.expmaps[self.expmap]
-            imgarr += v*scale
+            imgarr += v
+
+class BackModelVigNoVig(BackModelBase):
+    """A background model with vignetted and non-vignetted components."""
+
+    def __init__(
+            self, name, pars, images,
+            log=True, normarea=True,
+            defval=0.,
+            expmap='expmap', expmap_novig='expmap_novig',
+    ):
+        """A flat background model.
+
+        :param name: name of model
+        :param pars: dict of parameters
+        :param images: list of data.Image objects
+        :param bool log: apply log scaling to value of background
+        :param bool normarea: normalise background to per sq arcsec
+        :param defval: default parameter
+        :param expmap: name or index of exposure map to use (if any)
+        """
+        BackModelBase.__init__(self, name, pars, images, expmap=expmap)
+        pars['%s_scale' % name] = Par(
+            1.0, prior=PriorGaussian(1.0, 0.05), frozen=True)
+
+        for image in images:
+            imgkey = '%s_%s' % (name, image.img_id)
+            if log:
+                pars[imgkey] = Par(defval)
+            else:
+                pars[imgkey] = Par(defval, minval=0.)
+            pars['%s_fvig' % imgkey] = Par(0.5, minval=0., maxval=1.)
+
+        self.normarea = normarea
+        self.log = log
+        self.expmap = expmap
+        self.expmap_novig = expmap_novig
+
+    def compute(self, pars, imgarrs):
+        scale = pars['%s_scale' % self.name].v
+        for image, imgarr in zip(self.images, imgarrs):
+            imgkey = '%s_%s' % (self.name, image.img_id)
+
+            v = pars[imgkey].v
+            if self.log:
+                v = math.exp(v)
+            if self.normarea:
+                v *= image.pixsize_as**2
+            v *= scale
+            fracvig = pars['%s_fvig' % imgkey].v
+
+            out = (
+                image.expmaps[self.expmap]*(v*fracvig) +
+                image.expmaps[self.expmap_novig]*(v*(1-fracvig))
+            )
+
+            imgarr += out
 
 class SrcModelBase:
     """Base class for source models."""
