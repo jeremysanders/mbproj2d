@@ -63,7 +63,7 @@ def imageLoad(img_fname, exp_fname,
     pixsize_as = abs(hdr['CDELT1'])*3600
 
     # get image origin (in pixels or coordinate)
-    if pix_origin is not None:
+    if pix_origin is None:
         if origin is None:
             # use CRPIX coordinates
             pix_origin = (hdr['CRPIX2']-1, hdr['CRPIX1']-1)

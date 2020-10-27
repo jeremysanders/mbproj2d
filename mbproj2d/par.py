@@ -275,7 +275,7 @@ class Pars(dict):
             else:
                 raise e
 
-        if len(sel) != len(pars):
+        if len(self) != len(pars):
             raise RuntimeError("Number of parameters loaded does not match number of parameters")
 
         self.update(pars)

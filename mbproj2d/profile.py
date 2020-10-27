@@ -82,9 +82,9 @@ class ProfileSum(ProfileBase):
         return sum((prof.prior(pars) for prof in self.subprofs))
 
 class ProfileFlat(ProfileBase):
-    def __init__(self, name, pars, defval=0., log=False):
+    def __init__(self, name, pars, defval=0., log=False, minval=-N.inf, maxval=N.inf):
         ProfileBase.__init__(self, name, pars)
-        pars[name] = Par(defval)
+        pars[name] = Par(defval, minval=minval, maxval=maxval)
         self.log = log
 
     def compute(self, pars, radii):
