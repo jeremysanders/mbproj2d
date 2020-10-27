@@ -69,9 +69,9 @@ def imageLoad(img_fname, exp_fname,
             pix_origin = (hdr['CRPIX2']-1, hdr['CRPIX1']-1)
         else:
             if not isinstance(origin, SkyCoord):
-                orgin = SkyCoord(origin[0], origin[1], unit='deg')
+                origin = SkyCoord(origin[0], origin[1], unit='deg')
             x, y = astropy.wcs.utils.skycoord_to_pixel(origin, wcs, 0)
-            pix_origin = (y[0], x[0])
+            pix_origin = (y, x)
 
     imgf.close()
 
