@@ -2,13 +2,13 @@ MBProj2D
 ========
 
 2D forward-fitting projection code for fitting images of clusters of
-galaxies. This work builds upon the ideas in MBProj2.
+galaxies. This work builds upon the ideas in MBProj2 (see https://github.com/jeremysanders/mbproj2 and https://ui.adsabs.harvard.edu/abs/2018MNRAS.474.1065S). It differs from MBProj2 in that it fits images, rather than profiles, and allows multiple cluster and background components to be simultaneously fitted.
 
-This is *in progress* and is not yet suitable for serious use.
+This code is *in development*, so please be aware that the interface can be unstable.
 
 Copyright Jeremy Sanders (2020)
 
-License: GPLv3
+License: LGPLv3
 
 Requirements:
  - Recent Intel and AMD x86-64 processors with AVX2 support
@@ -26,3 +26,5 @@ Usage notes:
  - If using a PSF model, I suggest fitting a larger region of the sky than necessary, but masking out the edges. Do not zero the exposure map in these regions. The PSF modelling uses a FFT convolution, so the model will wrap around at the edges.
  
  - Input images must have even numbers of pixels on each axis
+
+ - The AVX2 requirement could be relaxed if there is sufficient demand.
