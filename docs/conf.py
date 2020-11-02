@@ -174,4 +174,4 @@ texinfo_documents = [
 
 
 
-autodoc_mock_imports = ['numpy.testing.nosetester']
+autodoc_mock_imports = ['numpy.testing.nosetester', 'mbproj2d.fast']
