@@ -4,7 +4,7 @@ MBProj2D
 2D forward-fitting projection code for fitting images of clusters of
 galaxies. This work builds upon the ideas in MBProj2 (see https://github.com/jeremysanders/mbproj2 and https://ui.adsabs.harvard.edu/abs/2018MNRAS.474.1065S). It differs from MBProj2 in that it fits images, rather than profiles, and allows multiple cluster and background components to be simultaneously fitted.
 
-This code is *in development*, so please be aware that the interface can be unstable.
+This code is *in development*, so please be aware that the interface can be unstable. More documentation can be found at https://mbproj2d.readthedocs.io/en/latest/
 
 Copyright Jeremy Sanders (2020)
 
