@@ -55,7 +55,7 @@ def projectionVolume(R1, R2, y1, y2):
 
     this is the integral:
     Int(y=y1,y2) Int(x=sqrt(R1^2-y^2),sqrt(R2^2-y^2)) 2*pi*y dx dy
-     =
+    =
     Int(y=y1,y2) 2*pi*y*( sqrt(R2^2-y^2) - sqrt(R1^2-y^2) ) dy
 
     This is half the total volume (front only)

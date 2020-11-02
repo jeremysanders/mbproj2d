@@ -89,7 +89,7 @@ def do_simulation():
     Z_solar = 0.3             # metallicity (solar)
 
     # outer radius
-    max_r_cm = 4.0 * mb.Mpc_cm
+    max_r_cm = 3.0 * mb.Mpc_cm
     pixsize_cm = (
         1/cosmo.arcsec_per_kpc_proper(z)*u.arcsec*pixsize_arcsec).to_value(u.cm)
     numpix = int(max_r_cm / pixsize_cm) + 1

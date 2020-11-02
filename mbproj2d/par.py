@@ -283,7 +283,7 @@ class Pars(dict):
     def match(self, pattern, use_re=False):
         """Returns a dictionary of parameters whose names match a pattern.
 
-        :param pattern: glob-style parameter match, e.g. ne_* or abc_???_alpha (default), a regular expression string (if use_re)
+        :param pattern: glob-style parameter match, e.g. "ne_*" or "abc_???_alpha" (default), a regular expression string (if use_re)
         :param use_re: if set, treat pattern as a regular expression
 
         Returns {'name': par, ...}
@@ -298,7 +298,7 @@ class Pars(dict):
     def matchFreeze(self, pattern, use_re=False):
         """Freeze parameters which match the name given.
 
-        :param pattern: glob-style parameter match, e.g. ne_* or abc_???_alpha
+        :param pattern: glob-style parameter match, e.g. "ne_*" or "abc_???_alpha"
         :param use_re: if set, treat pattern as a regular expression
         """
         for par in self.match(pattern, use_re=use_re).values():
@@ -307,7 +307,7 @@ class Pars(dict):
     def matchThaw(self, pattern, use_re=False):
         """Thaw parameters which match the name given.
 
-        :param pattern: glob-style parameter match, e.g. ne_* or abc_???_alpha.
+        :param pattern: glob-style parameter match, e.g. "ne_*" or "abc_???_alpha".
         :param use_re: if set, treat pattern as a regular expression
         """
         for par in self.match(pattern, use_re=use_re).values():
@@ -316,7 +316,7 @@ class Pars(dict):
     def matchSet(self, pattern, val, use_re=False):
         """Set values for parameters which match the name given.
 
-        :param pattern: glob-style parameter match, e.g. ne_* or abc_???_alpha.
+        :param pattern: glob-style parameter match, e.g. "ne_*" or "abc_???_alpha".
         :param val: constant (to set to same value) or iterable (to set to sequence)
         """
 
