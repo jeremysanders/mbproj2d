@@ -130,7 +130,7 @@ class Fit:
         else:
             if verbose:
                 utils.uprint(
-                    'Exiting after maximum of %i iterations' % maxiter)
+                    'Exiting after maximum of %i loops' % maxloops)
             success = False
 
         self.pars.setFree(fpars)
