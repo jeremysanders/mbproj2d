@@ -21,7 +21,22 @@ from . import utils
 from . import fast
 
 class Image:
-    """Image class details images to fit."""
+    """Image class details images to fit.
+
+    :param img_id: unique id for image (str or int)
+    :param imagearr: numpy image array for image
+    :param float emin_keV: minimum energy
+    :param float emax_keV: maximum energy
+    :param rmf: response matrix file
+    :param arf: ancillary response matrix file
+    :param pixsize_as: size of pixels in arcsec
+    :param expmaps: dict of numpy exposure map arrays (different components can use different exposure maps, if needed)
+    :param mask: numpy mask array (None means no mask)
+    :param psf: PSF object
+    :param origin: position in pixels (y,x) coordinates are measured relative to (should be same position in all images)
+    :param wcs: optional WCS stored with this image
+    :param optimal_size: expand images to be optimal size for PSF convolution
+    """
 
     def __init__(
             self, img_id, imagearr,
@@ -36,22 +51,6 @@ class Image:
             wcs=None,
             optimal_size=True,
     ):
-        """
-        :param img_id: unique id for image (str or int)
-        :param imagearr: numpy image array for image
-        :param float emin_keV: minimum energy
-        :param float emax_keV: maximum energy
-        :param rmf: response matrix file
-        :param arf: ancillary response matrix file
-        :param pixsize_as: size of pixels in arcsec
-        :param expmaps: dict of numpy exposure map arrays (different components can use different exposure maps, if needed)
-        :param mask: numpy mask array (None means no mask)
-        :param psf: PSF object
-        :param origin: position in pixels (y,x) coordinates are measured relative to (should be same position in all images)
-        :param wcs: optional WCS stored with this image
-        :param optimal_size: expand images to be optimal size for PSF convolution
-        """
-
         self.img_id = img_id
         self.emin_keV = emin_keV
         self.emax_keV = emax_keV
@@ -150,14 +149,14 @@ class Image:
         return newimage, newexpmaps, newmask
 
 class PSF:
-    """PSF modelling class."""
+    """PSF modelling class.
+
+    :param img: 2D PSF image
+    :param pixsize_as: size of pixels in arcsec
+    :param origin: (y, x) origin of PSF centre
+    """
 
     def __init__(self, img, pixsize_as=1.0, origin=None):
-        """
-        :param img: 2D PSF image
-        :param pixsize_as: size of pixels in arcsec
-        :param origin: (y, x) origin of PSF centre
-        """
         self.img = img
         if origin is None:
             self.origin = img.shape[0]/2, img.shape[1]/2

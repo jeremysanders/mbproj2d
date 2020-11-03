@@ -21,23 +21,21 @@ TODO: Replace with astopy's versions?
 
 # Taken from Ned Wright's cosmology calculator."""
 
-from __future__ import division, print_function, absolute_import
 from math import sqrt, pi, sin, exp
-from six.moves import range
 
 c = 299792.458 # velocity of light in km/sec
 Tyr = 977.8    # coefficent for converting 1/H into Gyr
 
-class Cosmology(object):
-    """Cosmology calculation object."""
+class Cosmology:
+    """Cosmology calculation object.
+
+    :param float H0: Hubble's constant (km/s/Mpc)
+    :param float q0: Deceleration parameter
+    :param float WM: Matter density
+    :param float WV: Vacuum density
+    """
 
     def __init__(self, z, H0=70., q0=0.5, WM=0.3, WV=0.7):
-        """
-        :param float H0: Hubble's constant (km/s/Mpc)
-        :param float q0: Deceleration parameter
-        :param float WM: Matter density
-        :param float WV: Vacuum density
-        """
         self.H0 = H0
         self.WM = WM
         self.WV = WV

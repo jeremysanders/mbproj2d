@@ -22,18 +22,18 @@ from . import utils
 from . import ratecalc
 
 class TotalModel:
-    """Combined model for data."""
+    """Combined model for data.
+
+    :param pars: Pars object (currently unused here)
+    :param images: list of Image objects
+    :param src_models: list of source models
+    :param src_expmap: name of exposure map to use for sources
+    :param back_models: list of background models
+    """
 
     def __init__(
             self, pars, images, src_models=None, src_expmap=None,
             back_models=None):
-        """
-        :param pars: Pars object (currently unused)
-        :param images: list of Image objects
-        :param src_models: list of source models
-        :param src_expmap: name of exposure map to use for sources
-        :param back_models: list of background models
-        """
 
         self.images = images
         self.src_models = src_models
@@ -153,16 +153,15 @@ class TotalModel:
         return total
 
 class BackModelBase:
-    """Base background model. Does nothing."""
+    """Base background model. Does nothing.
+
+    :param name: name of model
+    :param pars: Pars() object
+    :param images: list of Image() objects
+    :param expmap: exposure map name to lookup in Image
+    """
 
     def __init__(self, name, pars, images, expmap=None):
-        """
-        :param name: name of model
-        :param pars: Pars() object
-        :param images: list of Image() objects
-        :param expmap: exposure map name to lookup in Image
-        """
-
         self.name = name
         self.images = images
         self.expmap = expmap
@@ -174,7 +173,16 @@ class BackModelBase:
         return 0
 
 class BackModelFlat(BackModelBase):
-    """Flat background model."""
+    """Flat background model.
+
+    :param name: name of model
+    :param pars: dict of parameters
+    :param images: list of data.Image objects
+    :param bool log: apply log scaling to value of background
+    :param bool normarea: normalise background to per sq arcsec
+    :param defval: default parameter
+    :param expmap: name or index of exposure map to use (if any)
+    """
 
     def __init__(
             self, name, pars, images,
@@ -183,14 +191,6 @@ class BackModelFlat(BackModelBase):
             expmap=None
     ):
         """A flat background model.
-
-        :param name: name of model
-        :param pars: dict of parameters
-        :param images: list of data.Image objects
-        :param bool log: apply log scaling to value of background
-        :param bool normarea: normalise background to per sq arcsec
-        :param defval: default parameter
-        :param expmap: name or index of exposure map to use (if any)
         """
         BackModelBase.__init__(self, name, pars, images, expmap=expmap)
         for image in images:
@@ -218,7 +218,16 @@ class BackModelFlat(BackModelBase):
             imgarr += v
 
 class BackModelVigNoVig(BackModelBase):
-    """A background model with vignetted and non-vignetted components."""
+    """A background model with vignetted and non-vignetted components.
+
+    :param name: name of model
+    :param pars: dict of parameters
+    :param images: list of data.Image objects
+    :param bool log: apply log scaling to value of background
+    :param bool normarea: normalise background to per sq arcsec
+    :param defval: default parameter
+    :param expmap: name or index of exposure map to use (if any)
+    """
 
     def __init__(
             self, name, pars, images,
@@ -226,16 +235,6 @@ class BackModelVigNoVig(BackModelBase):
             defval=0.,
             expmap='expmap', expmap_novig='expmap_novig',
     ):
-        """A flat background model.
-
-        :param name: name of model
-        :param pars: dict of parameters
-        :param images: list of data.Image objects
-        :param bool log: apply log scaling to value of background
-        :param bool normarea: normalise background to per sq arcsec
-        :param defval: default parameter
-        :param expmap: name or index of exposure map to use (if any)
-        """
         BackModelBase.__init__(self, name, pars, images, expmap=expmap)
         pars['%s_scale' % name] = Par(
             1.0, prior=PriorGaussian(1.0, 0.05), frozen=True)
@@ -274,17 +273,16 @@ class BackModelVigNoVig(BackModelBase):
             imgarr += out
 
 class SrcModelBase:
-    """Base class for source models."""
+    """Base class for source models.
+
+    :param name: name of model
+    :param pars: dict of parameters
+    :param images: list of data.Image objects
+    :param cx: initial centre x coordinate
+    :param cy: initial centre y coordinate
+    """
 
     def __init__(self, name, pars, images, cx=0., cy=0.):
-        """
-        :param name: name of model
-        :param pars: dict of parameters
-        :param images: list of data.Image objects
-        :param cx: initial centre x coordinate
-        :param cy: initial centre y coordinate
-        """
-
         self.name = name
         self.images = images
 

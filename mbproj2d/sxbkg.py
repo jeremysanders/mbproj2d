@@ -77,12 +77,13 @@ class Sxbkg(BackModelBase):
 class Cxb(BackModelBase):
     """
     Model for calculating unresolved cosmic X-ray background
+
+    gamma = 1.41 (De Luca & Molendi 2004)
+    norm_scale=11.6 photon/cm2/s/sr
     """
 
     def __init__(self, name, pars, images, expmap=None, NH_1022pcm2=0, gamma=1.41, norm_scale=2.7e-10):
-        """gamma = 1.41 (De Luca & Molendi 2004)
-        norm_scale=11.6 photon/cm2/s/sr
-        """
+
         BackModelBase.__init__(self, name, pars, images, expmap)
 
         self.NH_1022pcm2 = NH_1022pcm2
@@ -115,18 +116,16 @@ class Cxb(BackModelBase):
 
 class BackModelImage(BackModelBase):
     """Background model based on images.
+
+    :param name: name of model
+    :param pars: dict of parameters
+    :param images: list of data.Image objects
+    :param backimgarrs: images to use as background for each Image
     """
 
     def __init__(
             self, name, pars, images, backimgarrs, expmap=None,
     ):
-        """A flat background model.
-
-        :param name: name of model
-        :param pars: dict of parameters
-        :param images: list of data.Image objects
-        :param backimgarrs: images to use as background for each Image
-        """
         BackModelBase.__init__(self, name, pars, images, expmap=expmap)
         for image in images:
             pars['%s_%s_logscale' % (name, image.img_id)] = Par(0.0, frozen=True)

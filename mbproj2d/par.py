@@ -27,6 +27,8 @@ import scipy.stats
 from . import utils
 
 class PriorBase:
+    """Base class for all Priors."""
+
     def calculate(self, val):
         return 0
 
@@ -41,6 +43,12 @@ class PriorBase:
         return PriorBase()
 
 class PriorFlat(PriorBase):
+    """Flat prior.
+
+    :param minval: minimum allowed value
+    :param minval: maximum allowed value
+    """
+
     def __init__(self, minval, maxval):
         PriorBase.__init__(self)
         self.minval = minval
@@ -63,6 +71,12 @@ class PriorFlat(PriorBase):
         return PriorFlat(self.minval, self.maxval)
 
 class PriorGaussian(PriorBase):
+    """Gaussian prior
+
+    :param mu: Gaussian centre
+    :param sigma: Gaussian width
+    """
+
     def __init__(self, mu, sigma):
         PriorBase.__init__(self)
         self.mu = mu
@@ -89,21 +103,20 @@ class PriorGaussian(PriorBase):
         return PriorGaussian(self.mu, self.sigma)
 
 class Par:
-    """Parameter for model."""
+    """Parameter for model.
+
+    :param float val: parameter value
+    :param prior: prior object or None for flat prior
+    :param frozen: whether to leave parameter frozen
+    :param xform: function to transform value for model or 'exp' for an exp(x) scaling
+    :param linked: another Par object to link this parameter to another
+    :param float minval: minimum value for default flat prior
+    :param float maxval: maximum value for default flat prior
+    """
 
     def __init__(
             self, val, prior=None, frozen=False, xform=None, linked=None,
             minval=-N.inf, maxval=N.inf):
-        """
-        :param float val: parameter value
-        :param prior: prior object or None for flat prior
-        :param frozen: whether to leave parameter frozen
-        :param xform: function to transform value for model or 'exp' for an exp(x) scaling
-        :param linked: another Par object to link this parameter to another
-        :param float minval: minimum value for default flat prior
-        :param float maxval: maximum value for default flat prior
-        """
-
         self.val = val
         self.frozen = frozen
 
@@ -170,7 +183,9 @@ class Par:
             xform=self.xform)
 
 class Pars(dict):
-    """Parameters for a model. Based on a dict.
+    """Parameters for a model.
+
+    This is based around a dictionary class. Each parameter has a name.
     """
 
     def numFree(self):

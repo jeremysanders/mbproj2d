@@ -23,9 +23,13 @@ from .par import Par
 from . import utils
 
 class Radii:
-    def __init__(self, rshell_kpc, num):
-        """Radii are equally-spaced with spacing rshell_kpc and num annuli/shells."""
+    """Define an equally-spaced set of shells/annuli and project between the two.
+    :param rshell_kpc: width of shells/annuli in kpc
+    :param num: number of shells/annuli
 
+    """
+
+    def __init__(self, rshell_kpc, num):
         self.num = num
         self.rshell_kpc = rshell_kpc
 
@@ -82,6 +86,8 @@ class ProfileSum(ProfileBase):
         return sum((prof.prior(pars) for prof in self.subprofs))
 
 class ProfileFlat(ProfileBase):
+    """Constant value profile."""
+
     def __init__(self, name, pars, defval=0., log=False, minval=-N.inf, maxval=N.inf):
         ProfileBase.__init__(self, name, pars)
         pars[name] = Par(defval, minval=minval, maxval=maxval)
@@ -94,13 +100,14 @@ class ProfileFlat(ProfileBase):
         return N.full(radii.num, v)
 
 class ProfileBinned(ProfileBase):
-    def __init__(self, name, pars, rbin_edges_kpc, defval=0., log=False):
-        """Create binned profile.
+    """Profile made up of constant values between particular radial edges.
 
-        rbin_edges_kpc: array of bin edges, kpc
-        defval: default value
-        log: where to apply exp to output.
-        """
+    :param rbin_edges_kpc: array of bin edges, kpc
+    :param defval: default value
+    :param log: where to apply exp to output.
+    """
+
+    def __init__(self, name, pars, rbin_edges_kpc, defval=0., log=False):
 
         ProfileBase.__init__(self, name, pars)
         for i in len(rbin_edges_kpc)-1:
@@ -131,7 +138,7 @@ class ProfileInterpol(ProfileBase):
     def __init__(self, name, pars, rcent_kpc, defval=0., log=False):
         """Create interpolated profile between fixed values
 
-        rcent_kpc: where to interpolate between in kpc
+        :param rcent_kpc: where to interpolate between in kpc
         """
 
         ProfileBase.__init__(self, name, pars)

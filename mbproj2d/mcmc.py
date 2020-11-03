@@ -34,18 +34,20 @@ class _MultiProcessPool:
         return self.queue.execute(args)
 
 class MCMC:
+    """
+    Handles MCMC analysis of Fit
+
+    :param Fit fit: Fit object to use for mcmc
+    :param int walkers: number of emcee walkers to use
+    :param int processes: number of simultaneous processes to compute likelihoods
+    :param float initspread: random Gaussian width added to create initial parameters
+    :param moves: moves parameter to emcee.EnsembleSampler
+    :param verbose: whether to write progress
+    """
 
     def __init__(
             self, fit,
             nwalkers=50, processes=1, initspread=0.01, moves=None, verbose=True):
-        """
-        :param Fit fit: Fit object to use for mcmc
-        :param int walkers: number of emcee walkers to use
-        :param int processes: number of simultaneous processes to compute likelihoods
-        :param float initspread: random Gaussian width added to create initial parameters
-        :param moves: moves parameter to emcee.EnsembleSampler
-        :param verbose: whether to write progress
-        """
 
         self.fit = fit
         self.nwalkers = nwalkers

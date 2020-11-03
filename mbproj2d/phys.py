@@ -46,7 +46,19 @@ def fracMassHalf(snum, edges):
     return finside, foutside
 
 class Phys:
-    """Calculate physical profiles for a cluster model."""
+    """Calculate physical profiles for a cluster model.
+
+    :param pars: parameters to apply
+    :param model: Cluster model component (not TotalModel!)
+    :param rmin_kpc: minimum radius to compute profiles for
+    :param rmax_kpc: maximum radius to compute profiles for
+    :param rsteps: number of steps to compute profiles for
+    :param binning: should be 'log' or 'lin' for bin size
+    :param average: should be 'midpt', 'volume', 'mean' for how to convert from input to output bins
+    :param linbin_kpc: internal linear bin size to use before rebinning
+    :param fluxrange_keV: energy range to compute (unabsorbed) fluxes between
+    :param luminrange_keV: rest energy range to compute luminosities between
+    """
 
     def __init__(self, pars, model,
                  rmin_kpc=0.5, rmax_kpc=2000, rsteps=256,
@@ -56,19 +68,6 @@ class Phys:
                  fluxrange_keV=(0.5,2.0),
                  luminrange_keV=(0.5,2.0),
     ):
-        """
-        :param pars: parameters to apply
-        :param model: Cluster model component (not TotalModel!)
-        :param rmin_kpc: minimum radius to compute profiles for
-        :param rmax_kpc: maximum radius to compute profiles for
-        :param rsteps: number of steps to compute profiles for
-        :param binning: should be 'log' or 'lin' for bin size
-        :param average: should be 'midpt', 'volume', 'mean' for how to convert from input to output bins
-        :param linbin_kpc: internal linear bin size to use before rebinning
-        :param fluxrange_keV: energy range to compute (unabsorbed) fluxes between
-        :param luminrange_keV: rest energy range to compute luminosities between
-        """
-
         self.pars = pars
         self.model = model
 
