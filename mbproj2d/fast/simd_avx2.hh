@@ -52,7 +52,7 @@ public:
   }
 
   float operator[](size_t i) const { return v[i]; }
-  float& operator[](size_t i) { return v[i]; }
+  void set_idx(size_t i, float val) { v[i]=val; }
 
   float hadd() const
   {
