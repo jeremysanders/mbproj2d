@@ -21,10 +21,15 @@ Requirements:
  - emcee
  - astropy
 
+Installation instructions using pip:
+
+    python3 -m pip install astropy cython emcee h5py numpy pyfftw scipy
+    python3 -m pip install git+https://github.com/jeremysanders/mbproj2d
+
 Usage notes:
 
  - If using a PSF model, I suggest fitting a larger region of the sky than necessary, but masking out the edges. Do not zero the exposure map in these regions. The PSF modelling uses a FFT convolution, so the model will wrap around at the edges.
  
- - Input images must have even numbers of pixels on each axis
+ - Input images must have even numbers of pixels on each axis (no longer true if optimal_size set)
 
  - The AVX2 requirement could be relaxed if there is sufficient demand.
