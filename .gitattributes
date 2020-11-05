@@ -1,0 +1,5 @@
+# Define binary file attributes.
+*.rmf binary
+*.arf binary
+*.hdf5 binary
+*.fits binary

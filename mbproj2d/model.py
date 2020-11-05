@@ -1,37 +1,39 @@
 # Copyright (C) 2020 Jeremy Sanders <jeremy@jeremysanders.net>
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 3 of the License, or (at your option) any later version.
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import math
 import numpy as N
 
 from .par import Par, PriorGaussian
 from . import utils
+from . import ratecalc
 
 class TotalModel:
-    """Combined model for data."""
+    """Combined model for data.
+
+    :param pars: Pars object (currently unused here)
+    :param images: list of Image objects
+    :param src_models: list of source models
+    :param src_expmap: name of exposure map to use for sources
+    :param back_models: list of background models
+    """
 
     def __init__(
             self, pars, images, src_models=None, src_expmap=None,
             back_models=None):
-        """
-        :param pars: Pars object (currently unused)
-        :param images: list of Image objects
-        :param src_models: list of source models
-        :param src_expmap: name of exposure map to use for sources
-        :param back_models: list of background models
-        """
 
         self.images = images
         self.src_models = src_models
@@ -151,16 +153,15 @@ class TotalModel:
         return total
 
 class BackModelBase:
-    """Base background model. Does nothing."""
+    """Base background model. Does nothing.
+
+    :param name: name of model
+    :param pars: Pars() object
+    :param images: list of Image() objects
+    :param expmap: exposure map name to lookup in Image
+    """
 
     def __init__(self, name, pars, images, expmap=None):
-        """
-        :param name: name of model
-        :param pars: Pars() object
-        :param images: list of Image() objects
-        :param expmap: exposure map name to lookup in Image
-        """
-
         self.name = name
         self.images = images
         self.expmap = expmap
@@ -172,7 +173,16 @@ class BackModelBase:
         return 0
 
 class BackModelFlat(BackModelBase):
-    """Flat background model."""
+    """Flat background model.
+
+    :param name: name of model
+    :param pars: dict of parameters
+    :param images: list of data.Image objects
+    :param bool log: apply log scaling to value of background
+    :param bool normarea: normalise background to per sq arcsec
+    :param defval: default parameter
+    :param expmap: name or index of exposure map to use (if any)
+    """
 
     def __init__(
             self, name, pars, images,
@@ -181,14 +191,6 @@ class BackModelFlat(BackModelBase):
             expmap=None
     ):
         """A flat background model.
-
-        :param name: name of model
-        :param pars: dict of parameters
-        :param images: list of data.Image objects
-        :param bool log: apply log scaling to value of background
-        :param bool normarea: normalise background to per sq arcsec
-        :param defval: default parameter
-        :param expmap: name or index of exposure map to use (if any)
         """
         BackModelBase.__init__(self, name, pars, images, expmap=expmap)
         for image in images:
@@ -209,51 +211,78 @@ class BackModelFlat(BackModelBase):
             if self.log:
                 v = math.exp(v)
             if self.normarea:
-                v *= image.pixsize_as
+                v *= image.pixsize_as**2
+            v *= scale
             if self.expmap is not None:
                 v *= image.expmaps[self.expmap]
-            imgarr += v*scale
+            imgarr += v
 
-class BackModelImage(BackModelBase):
-    """Background model based on images."""
+class BackModelVigNoVig(BackModelBase):
+    """A background model with vignetted and non-vignetted components.
+
+    :param name: name of model
+    :param pars: dict of parameters
+    :param images: list of data.Image objects
+    :param bool log: apply log scaling to value of background
+    :param bool normarea: normalise background to per sq arcsec
+    :param defval: default parameter
+    :param expmap: name or index of exposure map to use (if any)
+    """
 
     def __init__(
-            self, name, pars, images, backimgarrs, expmap=None,
+            self, name, pars, images,
+            log=True, normarea=True,
+            defval=0.,
+            expmap='expmap', expmap_novig='expmap_novig',
     ):
-        """A flat background model.
-
-        :param name: name of model
-        :param pars: dict of parameters
-        :param images: list of data.Image objects
-        :param backimgarrs: images to use as background for each Image
-        """
         BackModelBase.__init__(self, name, pars, images, expmap=expmap)
+        pars['%s_scale' % name] = Par(
+            1.0, prior=PriorGaussian(1.0, 0.05), frozen=True)
+
         for image in images:
-            pars['%s_%s_logscale' % (name, image.img_id)] = Par(0.0, frozen=True)
-        pars['%s_logscale' % name] = Par(
-            0.0, prior=PriorGaussian(0.0, 0.05), frozen=True)
-        self.backimgarrs = backimgarrs
+            imgkey = '%s_%s' % (name, image.img_id)
+            if log:
+                pars[imgkey] = Par(defval)
+            else:
+                pars[imgkey] = Par(defval, minval=0.)
+            pars['%s_fvig' % imgkey] = Par(0.5, minval=0., maxval=1.)
+
+        self.normarea = normarea
+        self.log = log
+        self.expmap = expmap
+        self.expmap_novig = expmap_novig
 
     def compute(self, pars, imgarrs):
-        scale = math.exp(pars['%s_logscale' % self.name].v)
-        for image, imgarr, backimgarr in zip(self.images, imgarrs, self.backimgarrs):
-            v = math.exp(pars['%s_%s_logscale' % (self.name, image.img_id)].v)
-            yw, xw = backimgarr.shape
+        scale = pars['%s_scale' % self.name].v
+        for image, imgarr in zip(self.images, imgarrs):
+            imgkey = '%s_%s' % (self.name, image.img_id)
 
-            imgarr[:yw,:xw] += (v*scale)*backimgarr
+            v = pars[imgkey].v
+            if self.log:
+                v = math.exp(v)
+            if self.normarea:
+                v *= image.pixsize_as**2
+            v *= scale
+            fracvig = pars['%s_fvig' % imgkey].v
+
+            out = (
+                image.expmaps[self.expmap]*(v*fracvig) +
+                image.expmaps[self.expmap_novig]*(v*(1-fracvig))
+            )
+
+            imgarr += out
 
 class SrcModelBase:
-    """Base class for source models."""
+    """Base class for source models.
+
+    :param name: name of model
+    :param pars: dict of parameters
+    :param images: list of data.Image objects
+    :param cx: initial centre x coordinate
+    :param cy: initial centre y coordinate
+    """
 
     def __init__(self, name, pars, images, cx=0., cy=0.):
-        """
-        :param name: name of model
-        :param pars: dict of parameters
-        :param images: list of data.Image objects
-        :param cx: initial centre x coordinate
-        :param cy: initial centre y coordinate
-        """
-
         self.name = name
         self.images = images
 

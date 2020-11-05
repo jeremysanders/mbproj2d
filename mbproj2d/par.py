@@ -1,27 +1,34 @@
 # Copyright (C) 2020 Jeremy Sanders <jeremy@jeremysanders.net>
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 3 of the License, or (at your option) any later version.
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import sys
 import math
 import pickle
+import fnmatch
+import re
+import itertools
+
 import numpy as N
 import scipy.stats
 
 from . import utils
 
 class PriorBase:
+    """Base class for all Priors."""
+
     def calculate(self, val):
         return 0
 
@@ -36,6 +43,12 @@ class PriorBase:
         return PriorBase()
 
 class PriorFlat(PriorBase):
+    """Flat prior.
+
+    :param minval: minimum allowed value
+    :param minval: maximum allowed value
+    """
+
     def __init__(self, minval, maxval):
         PriorBase.__init__(self)
         self.minval = minval
@@ -58,6 +71,12 @@ class PriorFlat(PriorBase):
         return PriorFlat(self.minval, self.maxval)
 
 class PriorGaussian(PriorBase):
+    """Gaussian prior
+
+    :param mu: Gaussian centre
+    :param sigma: Gaussian width
+    """
+
     def __init__(self, mu, sigma):
         PriorBase.__init__(self)
         self.mu = mu
@@ -84,21 +103,20 @@ class PriorGaussian(PriorBase):
         return PriorGaussian(self.mu, self.sigma)
 
 class Par:
-    """Parameter for model."""
+    """Parameter for model.
+
+    :param float val: parameter value
+    :param prior: prior object or None for flat prior
+    :param frozen: whether to leave parameter frozen
+    :param xform: function to transform value for model or 'exp' for an exp(x) scaling
+    :param linked: another Par object to link this parameter to another
+    :param float minval: minimum value for default flat prior
+    :param float maxval: maximum value for default flat prior
+    """
 
     def __init__(
             self, val, prior=None, frozen=False, xform=None, linked=None,
             minval=-N.inf, maxval=N.inf):
-        """
-        :param float val: parameter value
-        :param prior: prior object or None for flat prior
-        :param frozen: whether to leave parameter frozen
-        :param xform: function to transform value for model or 'exp' for an exp(x) scaling
-        :param linked: another Par object to link this parameter to another
-        :param float minval: minimum value for default flat prior
-        :param float maxval: maximum value for default flat prior
-        """
-
         self.val = val
         self.frozen = frozen
 
@@ -165,7 +183,9 @@ class Par:
             xform=self.xform)
 
 class Pars(dict):
-    """Parameters for a model. Based on a dict.
+    """Parameters for a model.
+
+    This is based around a dictionary class. Each parameter has a name.
     """
 
     def numFree(self):
@@ -254,3 +274,71 @@ class Pars(dict):
 
         with open(filename, 'wb') as f:
             pickle.dump(self, f)
+
+    def load(self, filename, skip=False):
+        """Load parameters from file.
+
+        :param filename: filename to load from
+        :param skipmissing: if set, then we continue if file not found
+        """
+        try:
+            with open(filename, 'rb') as f:
+                pars = pickle.load(f)
+        except OSError as e:
+            if skip:
+                return
+            else:
+                raise e
+
+        if len(self) != len(pars):
+            raise RuntimeError("Number of parameters loaded does not match number of parameters")
+
+        self.update(pars)
+
+    def match(self, pattern, use_re=False):
+        """Returns a dictionary of parameters whose names match a pattern.
+
+        :param pattern: glob-style parameter match, e.g. "ne_*" or "abc_???_alpha" (default), a regular expression string (if use_re)
+        :param use_re: if set, treat pattern as a regular expression
+
+        Returns {'name': par, ...}
+        """
+        out = {}
+        for name in self:
+            if ( (use_re and re.match(pattern, name) is not None) or
+                 (not use_re and fnmatch.fnmatchcase(name, pattern)) ):
+                out[name] = self[name]
+        return out
+
+    def matchFreeze(self, pattern, use_re=False):
+        """Freeze parameters which match the name given.
+
+        :param pattern: glob-style parameter match, e.g. "ne_*" or "abc_???_alpha"
+        :param use_re: if set, treat pattern as a regular expression
+        """
+        for par in self.match(pattern, use_re=use_re).values():
+            par.frozen = True
+
+    def matchThaw(self, pattern, use_re=False):
+        """Thaw parameters which match the name given.
+
+        :param pattern: glob-style parameter match, e.g. "ne_*" or "abc_???_alpha".
+        :param use_re: if set, treat pattern as a regular expression
+        """
+        for par in self.match(pattern, use_re=use_re).values():
+            par.frozen = False
+
+    def matchSet(self, pattern, val, use_re=False):
+        """Set values for parameters which match the name given.
+
+        :param pattern: glob-style parameter match, e.g. "ne_*" or "abc_???_alpha".
+        :param val: constant (to set to same value) or iterable (to set to sequence)
+        """
+
+        try:
+            valiter = iter(val)
+        except TypeError:
+            valiter = itertools.repeat(val)
+
+        for par in self.match(pattern, use_re=use_re).values():
+            par.val = next(valiter)

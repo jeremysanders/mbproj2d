@@ -1,17 +1,18 @@
 # Copyright (C) 2016 Jeremy Sanders <jeremy@jeremysanders.net>
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 3 of the License, or (at your option) any later version.
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """Routines for calculating distances from cosmology.
 
@@ -20,23 +21,21 @@ TODO: Replace with astopy's versions?
 
 # Taken from Ned Wright's cosmology calculator."""
 
-from __future__ import division, print_function, absolute_import
 from math import sqrt, pi, sin, exp
-from six.moves import range
 
 c = 299792.458 # velocity of light in km/sec
 Tyr = 977.8    # coefficent for converting 1/H into Gyr
 
-class Cosmology(object):
-    """Cosmology calculation object."""
+class Cosmology:
+    """Cosmology calculation object.
+
+    :param float H0: Hubble's constant (km/s/Mpc)
+    :param float q0: Deceleration parameter
+    :param float WM: Matter density
+    :param float WV: Vacuum density
+    """
 
     def __init__(self, z, H0=70., q0=0.5, WM=0.3, WV=0.7):
-        """
-        :param float H0: Hubble's constant (km/s/Mpc)
-        :param float q0: Deceleration parameter
-        :param float WM: Matter density
-        :param float WV: Vacuum density
-        """
         self.H0 = H0
         self.WM = WM
         self.WV = WV

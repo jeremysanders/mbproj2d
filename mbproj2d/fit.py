@@ -1,17 +1,18 @@
 # Copyright (C) 2020 Jeremy Sanders <jeremy@jeremysanders.net>
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 3 of the License, or (at your option) any later version.
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as N
 import scipy.optimize
@@ -72,14 +73,17 @@ class Fit:
 
     def run(
             self,
-            verbose=True, sigdelta=0.01, maxiter=10,
+            verbose=True, sigdelta=0.01, maxloops=10, maxfititer=None,
             methods=('Nelder-Mead', 'Powell'),
+            fitoptions=None,
     ):
         """
         :param verbose: show fit progress
         :param sigdelta: what is a significant change in fit statistic
-        :param maxiter: fit a maximum number of times with improvement before exiting
+        :param maxfititer: maximum number of iterations to pass to fit routine
+        :param maxloops: fit a maximum number of times with improvement before exiting
         :param methods: iterate through these fitting methods to look for improvement
+        :param fitoptions: options to pass to minimizer
 
         Returns (fit_like, success) where success indicates less than maximum number of iterations were done.
         """
@@ -103,13 +107,19 @@ class Fit:
 
         success = True
         fpars = self.pars.freeVals()
-        for i in range(maxiter):
+        for i in range(maxloops):
             if verbose:
                 utils.uprint('Fitting (iteration %i)' % (i+1))
 
+            options = {}
+            if fitoptions:
+                options.update(fitoptions)
+            if maxfititer:
+                options['maxiter'] = maxfititer
+
             for method in methods:
                 fitpars = scipy.optimize.minimize(
-                    fitfunc, fpars, method=method)
+                    fitfunc, fpars, method=method, options=options)
                 fpars = fitpars.x
                 flike = -fitpars.fun
 
@@ -120,7 +130,7 @@ class Fit:
         else:
             if verbose:
                 utils.uprint(
-                    'Exiting after maximum of %i iterations' % maxiter)
+                    'Exiting after maximum of %i loops' % maxloops)
             success = False
 
         self.pars.setFree(fpars)

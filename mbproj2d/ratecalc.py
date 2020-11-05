@@ -1,17 +1,18 @@
 # Copyright (C) 2016 Jeremy Sanders <jeremy@jeremysanders.net>
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 3 of the License, or (at your option) any later version.
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """Module to get count rates for different spectral models.
 
@@ -174,6 +175,8 @@ class PowerlawRateCalc:
 
                     # attributes to track cached items
                     attrs = fcache[self.key].attrs
+                    attrs['rmf'] = rmf
+                    attrs['arf'] = arf
                     attrs['NH_1022pcm2'] = NH_1022pcm2
                     attrs['erange_keV'] = (emin_keV, emax_keV)
                     attrs['gammas'] = self.gammas
@@ -259,3 +262,43 @@ class ApecFluxCalc:
 
         # use Z=0 and Z=1 count fluxes to evaluate at Z given
         return (Z0T_flux + (Z1T_flux-Z0T_flux)*Z_solar) * norm
+
+class XspecModelRateCalc:
+    """Get rates for an xspec model.
+
+    Returns rate in band for a model xcm file
+    """
+
+    hdffname = 'mbproj2d_cache.hdf5'
+
+    def __init__(self, rmf, arf, emin_keV, emax_keV, xcmfile):
+
+        # build a key to lookup/store in the cache file
+        # unclear whether we should bother caching...
+        h = hashlib.md5()
+        with open(xcmfile, 'rb') as f:
+            h.update(f.read())
+        h.update(os.path.abspath(rmf).encode('utf8'))
+        h.update(os.path.abspath(arf).encode('utf8'))
+        h.update(N.array([emin_keV, emax_keV]))
+        key = 'xcmrates_' + h.hexdigest()
+
+        with utils.WithLock(self.hdffname + '.lockdir') as lock:
+            with h5py.File(self.hdffname, 'a') as fcache:
+
+                if key in fcache:
+                    self.rate = float(N.array(fcache[key]))
+                else:
+                    with XSpecContext() as xspec:
+                        xspec.changeResponse(rmf, arf, emin_keV, emax_keV)
+                        xspec.loadXCM(xcmfile)
+                        self.rate = xspec.getRate()
+                        fcache[key] = self.rate
+                        attrs = fcache[key].attrs
+                        attrs['rmf'] = rmf
+                        attrs['arf'] = arf
+                        attrs['erange_keV'] = (emin_keV, emax_keV)
+                        attrs['xcmfile'] = xcmfile
+
+    def get(self):
+        return self.rate

@@ -1,17 +1,18 @@
 # Copyright (C) 2020 Jeremy Sanders <jeremy@jeremysanders.net>
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 3 of the License, or (at your option) any later version.
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import emcee
 import h5py
@@ -33,18 +34,20 @@ class _MultiProcessPool:
         return self.queue.execute(args)
 
 class MCMC:
+    """
+    Handles MCMC analysis of Fit
+
+    :param Fit fit: Fit object to use for mcmc
+    :param int walkers: number of emcee walkers to use
+    :param int processes: number of simultaneous processes to compute likelihoods
+    :param float initspread: random Gaussian width added to create initial parameters
+    :param moves: moves parameter to emcee.EnsembleSampler
+    :param verbose: whether to write progress
+    """
 
     def __init__(
             self, fit,
             nwalkers=50, processes=1, initspread=0.01, moves=None, verbose=True):
-        """
-        :param Fit fit: Fit object to use for mcmc
-        :param int walkers: number of emcee walkers to use
-        :param int processes: number of simultaneous processes to compute likelihoods
-        :param float initspread: random Gaussian width added to create initial parameters
-        :param moves: moves parameter to emcee.EnsembleSampler
-        :param verbose: whether to write progress
-        """
 
         self.fit = fit
         self.nwalkers = nwalkers

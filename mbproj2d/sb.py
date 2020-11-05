@@ -1,20 +1,23 @@
 # Copyright (C) 2020 Jeremy Sanders <jeremy@jeremysanders.net>
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 3 of the License, or (at your option) any later version.
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as N
 import h5py
+from astropy.coordinates import SkyCoord
+import astropy.wcs
 
 from .fast import accreteBinImage, buildVoronoiMap
 from .utils import uprint
@@ -31,16 +34,20 @@ class SBMaps:
     :param model: TotalModel object
     :param images: list of Image objects
     :param img_bincts: Bin images by given counts
+    :param prof_origin: Either profile origins in arcsec (cy,cx), relative to image origin, or a SkyCoord
     """
 
     def __init__(
             self, pars, model, images,
             img_bincts=10,
-            prof_bincts=10, prof_origin=(0,0), verbose=True):
+            prof_bincts=10, verbose=True,
+            prof_origin=(0,0),
+    ):
 
         self.verbose = verbose
         self.images = images
-        self.prof_binmaps, self.prof_binradii = self._binProfiles(prof_bincts)
+        self.prof_binmaps, self.prof_binradii = self._binProfiles(
+            prof_bincts, prof_origin)
         self.cvt_binmaps = self._makeBinmaps(img_bincts)
         self.pars = pars
         self.model = model
@@ -68,7 +75,7 @@ class SBMaps:
 
         return binmaps
 
-    def _binProfiles(self, bincts):
+    def _binProfiles(self, bincts, origin):
         """Construct bin maps for annular bins with a minimum number of counts."""
 
         if self.verbose:
@@ -77,9 +84,15 @@ class SBMaps:
         binradii = []
         binmaps = []
         for image in self.images:
+            if isinstance(origin, SkyCoord):
+                ox, oy = astropy.wcs.utils.skycoord_to_pixel(origin, image.wcs, 0)
+            else:
+                ox = origin[1]/image.pixsize_as + image.origin[1]
+                oy = origin[0]/image.pixsize_as + image.origin[0]
+
             # radius in pixels relative to the origin
             radius = N.fromfunction(
-                lambda y,x: N.sqrt((x-image.origin[1])**2+(y-image.origin[0])**2),
+                lambda y,x: N.sqrt((x-ox)**2+(y-oy)**2),
                 image.shape)
             # bin by pixels (use radius 0 for bad pixels)
             binmap = radius.astype(N.int32) + 1
@@ -302,10 +315,8 @@ class SBMaps:
         # CVT output
         self._getCVTStats(modbins_cvt, percs, out)
 
+        # profile statistics
         self._getProfStats(modbins_profs_cmpts, percs, out)
-
-        # get profile statistics
-        #for modvals, image, binmap, radii in zip(
 
         # write to hdf5 file
         if h5fname is not None:

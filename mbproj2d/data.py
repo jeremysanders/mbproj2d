@@ -1,17 +1,18 @@
 # Copyright (C) 2020 Jeremy Sanders <jeremy@jeremysanders.net>
 #
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU Lesser General Public
+# License as published by the Free Software Foundation; either
+# version 3 of the License, or (at your option) any later version.
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program; if not, write to the Free Software Foundation,
+# Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import numpy as N
 from scipy.special import gammaln
@@ -19,10 +20,23 @@ from scipy.special import gammaln
 from . import utils
 from . import fast
 
-
-
 class Image:
-    """Image class details images to fit."""
+    """Image class details images to fit.
+
+    :param img_id: unique id for image (str or int)
+    :param imagearr: numpy image array for image
+    :param float emin_keV: minimum energy
+    :param float emax_keV: maximum energy
+    :param rmf: response matrix file
+    :param arf: ancillary response matrix file
+    :param pixsize_as: size of pixels in arcsec
+    :param expmaps: dict of numpy exposure map arrays (different components can use different exposure maps, if needed)
+    :param mask: numpy mask array (None means no mask)
+    :param psf: PSF object
+    :param origin: position in pixels (y,x) coordinates are measured relative to (should be same position in all images)
+    :param wcs: optional WCS stored with this image
+    :param optimal_size: expand images to be optimal size for PSF convolution
+    """
 
     def __init__(
             self, img_id, imagearr,
@@ -34,23 +48,9 @@ class Image:
             mask=None,
             psf=None,
             origin=(0,0),
+            wcs=None,
             optimal_size=True,
     ):
-        """
-        :param img_id: unique id for image (str or int)
-        :param imagearr: numpy image array for image
-        :param float emin_keV: minimum energy
-        :param float emax_keV: maximum energy
-        :param rmf: response matrix file
-        :param arf: ancillary response matrix file
-        :param pixsize_as: size of pixels in arcsec
-        :param expmaps: dict of numpy exposure map arrays (different components can use different exposure maps, if needed)
-        :param mask: numpy mask array (None means no mask)
-        :param psf: PSF object
-        :param origin: position in pixels (y,x) coordinates are measured relative to (should be same position in all images)
-        :param optimal_size: expand images to be optimal size for PSF convolution
-        """
-
         self.img_id = img_id
         self.emin_keV = emin_keV
         self.emax_keV = emax_keV
@@ -58,6 +58,7 @@ class Image:
         self.arf = arf
         self.pixsize_as = pixsize_as
         self.invpixsize = 1/pixsize_as
+        self.wcs = wcs
 
         if optimal_size:
             imagearr, expmaps, mask = self._expandOptimal(
@@ -148,14 +149,14 @@ class Image:
         return newimage, newexpmaps, newmask
 
 class PSF:
-    """PSF modelling class."""
+    """PSF modelling class.
+
+    :param img: 2D PSF image
+    :param pixsize_as: size of pixels in arcsec
+    :param origin: (y, x) origin of PSF centre
+    """
 
     def __init__(self, img, pixsize_as=1.0, origin=None):
-        """
-        :param img: 2D PSF image
-        :param pixsize_as: size of pixels in arcsec
-        :param origin: (y, x) origin of PSF centre
-        """
         self.img = img
         if origin is None:
             self.origin = img.shape[0]/2, img.shape[1]/2
