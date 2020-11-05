@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "simd_avx2.hh"
+#include "simd_sse2.hh"
 
 using std::printf;
 using std::sqrt;
@@ -12,6 +13,12 @@ using std::ceil;
 using std::min;
 using std::max;
 using std::log;
+
+// does the CPU support AVX2?
+inline bool have_avx2()
+{
+  return __builtin_cpu_supports("avx2");
+}
 
 template<class T> inline T sqr(T a)
 {
@@ -123,27 +130,28 @@ double logLikelihood(const int nelem, const float* data, const float* model)
   return sumdm - summ;
 }
 
-// AVX Poisson log likelihood (around 2.8x faster than direct version)
-float logLikelihoodAVX(int nelem, const float* data, const float* model)
+
+// AVX/SSE2 Poisson log likelihood (around 2.8x faster than direct version for AVX)
+template<class T> float __attribute__ ((noinline)) logLikelihoodT(int nelem, const float* data, const float* model)
 {
   // this is a Kahan summation to improve accuracy
   // https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-  VecF sumv(0.f);
-  VecF c(0.f);
-  while(nelem >= int(VecF::nelem))
+  T sumv(0.f);
+  T c(0.f);
+  while(nelem >= int(T::nelem))
     {
-      VecF d(data);
-      VecF m(model);
+      T d(data);
+      T m(model);
 
-      VecF val(d*log(m) - m);
-      VecF y = val-c;
-      VecF t = sumv+y;
+      T val(d*log(m) - m);
+      T y = val-c;
+      T t = sumv+y;
       c = (t-sumv)-y;
       sumv = t;
 
-      nelem -= int(VecF::nelem);
-      data += VecF::nelem;
-      model += VecF::nelem;
+      nelem -= int(T::nelem);
+      data += T::nelem;
+      model += T::nelem;
     }
 
   // add remaining items
@@ -155,29 +163,37 @@ float logLikelihoodAVX(int nelem, const float* data, const float* model)
   return sum;
 }
 
-float logLikelihoodAVXMasked(int nelem, const float* data, const float* model, const int* mask)
+float logLikelihoodSIMD(int nelem, const float* data, const float* model)
+{
+  if(have_avx2())
+    return logLikelihoodT<VecF8>(nelem, data, model);
+  else
+    return logLikelihoodT<VecF4>(nelem, data, model);
+}
+
+template<class F, class I> float __attribute__ ((noinline)) logLikelihoodTMasked(int nelem, const float* data, const float* model, const int* mask)
 {
   // this is a Kahan summation to improve accuracy
   // https://en.wikipedia.org/wiki/Kahan_summation_algorithm
-  VecF sumv(0.f);
-  VecF c(0.f);
-  while(nelem >= int(VecF::nelem))
+  F sumv(0.f);
+  F c(0.f);
+  while(nelem >= int(F::nelem))
     {
       // calculate data*log(model)-model, applying mask=-1 or 0
-      VecF d(data);
-      VecF m(model);
-      VecF val = and_mask(d*log(m)-m, VecI(mask));
+      F d(data);
+      F m(model);
+      F val = and_mask(d*log(m)-m, I(mask));
 
       // Kahan summation code
-      VecF y = val-c;
-      VecF t = sumv+y;
+      F y = val-c;
+      F t = sumv+y;
       c = (t-sumv)-y;
       sumv = t;
 
-      nelem -= int(VecF::nelem);
-      data += VecF::nelem;
-      model += VecF::nelem;
-      mask += VecI::nelem;
+      nelem -= int(F::nelem);
+      data += F::nelem;
+      model += F::nelem;
+      mask += I::nelem;
     }
 
   // add remaining items
@@ -188,6 +204,14 @@ float logLikelihoodAVXMasked(int nelem, const float* data, const float* model, c
 	sum += data[i]*log(model[i]) - model[i];
     }
   return sum;
+}
+
+float logLikelihoodSIMDMasked(int nelem, const float* data, const float* model, const int* mask)
+{
+  if(have_avx2())
+    return logLikelihoodTMasked<VecF8,VecI8>(nelem, data, model, mask);
+  else
+    return logLikelihoodTMasked<VecF4,VecI4>(nelem, data, model, mask);
 }
 
 
@@ -237,41 +261,57 @@ void resamplePSF(int psf_nx, int psf_ny,
 }
 
 // faster version of clipping function
-void clipMin(float minval, int ny, int nx, float* arr)
+template<class T> void __attribute__ ((noinline)) clipMinT(float minval, int ny, int nx, float* arr)
 {
   int ntot = nx*ny;
 
-  VecF cmp(minval);
-  while(ntot >= int(VecF::nelem))
+  T cmp(minval);
+  while(ntot >= int(T::nelem))
     {
-      VecF val(arr);
-      VecF minv(min(val, cmp));
+      T val(arr);
+      T minv(min(val, cmp));
       minv.store(arr);
 
-      arr += VecF::nelem;
-      ntot -= int(VecF::nelem);
+      arr += T::nelem;
+      ntot -= int(T::nelem);
     }
 
   for(int i=0; i<ntot; ++i)
     arr[i] = min(arr[i], minval);
 }
 
+void clipMin(float minval, int ny, int nx, float* arr)
+{
+  if(have_avx2())
+    clipMinT<VecF8>(minval, ny, nx, arr);
+  else
+    clipMinT<VecF4>(minval, ny, nx, arr);
+}
+
 // faster version of clipping function
-void clipMax(float maxval, int ny, int nx, float* arr)
+template <class T> void __attribute__ ((noinline)) clipMaxT(float maxval, int ny, int nx, float* arr)
 {
   int ntot = nx*ny;
 
-  VecF cmp(maxval);
-  while(ntot >= int(VecF::nelem))
+  T cmp(maxval);
+  while(ntot >= int(T::nelem))
     {
-      VecF val(arr);
-      VecF maxv(max(val, cmp));
+      T val(arr);
+      T maxv(max(val, cmp));
       maxv.store(arr);
 
-      arr += VecF::nelem;
-      ntot -= int(VecF::nelem);
+      arr += T::nelem;
+      ntot -= int(T::nelem);
     }
 
   for(int i=0; i<ntot; ++i)
     arr[i] = max(arr[i], maxval);
+}
+
+void clipMax(float minval, int ny, int nx, float* arr)
+{
+  if(have_avx2())
+    clipMaxT<VecF8>(minval, ny, nx, arr);
+  else
+    clipMaxT<VecF4>(minval, ny, nx, arr);
 }

@@ -7,32 +7,32 @@
 // Floating point wrappers
 //////////////////////////
 
-class VecF
+class VecF8
 {
 public:
   static constexpr size_t nelem = 8;
 
-  VecF(__m256 x) : v(x)
+  VecF8(__m256 x) : v(x)
   {}
-  VecF(float x) : v(_mm256_set1_ps(x))
+  VecF8(float x) : v(_mm256_set1_ps(x))
   {}
-  VecF(float a0, float a1, float a2, float a3,
+  VecF8(float a0, float a1, float a2, float a3,
        float a4, float a5, float a6, float a7)
     : v(_mm256_set_ps(a0,a1,a2,a3,a4,a5,a6,a7))
   {}
-  VecF(const float* x) : v(_mm256_loadu_ps(x))
+  VecF8(const float* x) : v(_mm256_loadu_ps(x))
   {}
 
-  VecF& operator=(const VecF& o)
+  VecF8& operator=(const VecF8& o)
   {
     v = o.v;
     return *this;
   }
 
   // steps to increment to next block
-  static VecF step()
+  static VecF8 step()
   {
-    return VecF(7,6,5,4,3,2,1,0);
+    return VecF8(7,6,5,4,3,2,1,0);
   }
 
   float operator[](size_t i) const { return v[i]; }
@@ -52,47 +52,47 @@ public:
   __m256 v;
 };
 
-inline VecF operator+(const VecF& a, const VecF& b)
+inline VecF8 operator+(const VecF8& a, const VecF8& b)
 {
   return _mm256_add_ps(a.v, b.v);
 }
 
-inline VecF operator-(const VecF& a, const VecF& b)
+inline VecF8 operator-(const VecF8& a, const VecF8& b)
 {
   return _mm256_sub_ps(a.v, b.v);
 }
 
-inline VecF operator*(const VecF& a, const VecF& b)
+inline VecF8 operator*(const VecF8& a, const VecF8& b)
 {
   return _mm256_mul_ps(a.v, b.v);
 }
 
-inline VecF operator/(const VecF& a, const VecF& b)
+inline VecF8 operator/(const VecF8& a, const VecF8& b)
 {
   return _mm256_div_ps(a.v, b.v);
 }
 
-inline VecF sqrt(const VecF& a)
+inline VecF8 sqrt(const VecF8& a)
 {
   return _mm256_sqrt_ps(a.v);
 }
 
-inline VecF log(const VecF& a)
+inline VecF8 log(const VecF8& a)
 {
   return log256_ps(a.v);
 }
 
-inline VecF exp(const VecF& a)
+inline VecF8 exp(const VecF8& a)
 {
   return exp256_ps(a.v);
 }
 
-inline VecF min(const VecF& a, const VecF& b)
+inline VecF8 min(const VecF8& a, const VecF8& b)
 {
   return _mm256_min_ps(a.v, b.v);
 }
 
-inline VecF max(const VecF& a, const VecF& b)
+inline VecF8 max(const VecF8& a, const VecF8& b)
 {
   return _mm256_max_ps(a.v, b.v);
 }
@@ -100,33 +100,33 @@ inline VecF max(const VecF& a, const VecF& b)
 ///////////////////////////////
 // Integer wrappers
 
-class VecI
+class VecI8
 {
 public:
   static constexpr size_t nelem = 8;
 
-  VecI(__m256i x) : v(x)
+  VecI8(__m256i x) : v(x)
   {}
-  VecI(int x) : v(_mm256_set1_epi32(x))
+  VecI8(int x) : v(_mm256_set1_epi32(x))
   {}
-  VecI(int a0, int a1, int a2, int a3,
+  VecI8(int a0, int a1, int a2, int a3,
        int a4, int a5, int a6, int a7)
     : v(_mm256_set_epi32(a0,a1,a2,a3,a4,a5,a6,a7))
   {}
-  VecI(const int* x) : v(_mm256_loadu_si256
+  VecI8(const int* x) : v(_mm256_loadu_si256
 			 (reinterpret_cast<__m256i const *>(x)))
   {}
 
-  VecI& operator=(const VecI& o)
+  VecI8& operator=(const VecI8& o)
   {
     v = o.v;
     return *this;
   }
 
   // steps to increment to next block
-  static VecI step()
+  static VecI8 step()
   {
-    return VecI(7,6,5,4,3,2,1,0);
+    return VecI8(7,6,5,4,3,2,1,0);
   }
 
   int operator[](size_t i) const { return v[i]; }
@@ -134,17 +134,17 @@ public:
   __m256i v;
 };
 
-inline VecI operator+(const VecI& a, const VecI& b)
+inline VecI8 operator+(const VecI8& a, const VecI8& b)
 {
   return _mm256_add_epi32(a.v, b.v);
 }
 
-inline VecI operator-(const VecI& a, const VecI& b)
+inline VecI8 operator-(const VecI8& a, const VecI8& b)
 {
   return _mm256_sub_epi32(a.v, b.v);
 }
 
-inline VecI operator*(const VecI& a, const VecI& b)
+inline VecI8 operator*(const VecI8& a, const VecI8& b)
 {
   return _mm256_mul_epi32(a.v, b.v);
 }
@@ -152,13 +152,13 @@ inline VecI operator*(const VecI& a, const VecI& b)
 // mixed functions
 
 // take a where mask==-1 or b where mask==0
-inline VecF where(const VecI& mask, const VecF& a, const VecF& b)
+inline VecF8 where(const VecI8& mask, const VecF8& a, const VecF8& b)
 {
   return _mm256_blendv_ps(a.v, b.v, _mm256_castsi256_ps(mask.v));
 }
 
 // apply integer mask to floating point value
-inline VecF and_mask(const VecF& a, const VecI& mask)
+inline VecF8 and_mask(const VecF8& a, const VecI8& mask)
 {
   return _mm256_and_ps(a.v, _mm256_castsi256_ps(mask.v));
 }

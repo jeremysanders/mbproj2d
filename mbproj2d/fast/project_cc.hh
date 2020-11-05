@@ -9,9 +9,9 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
 		 const int xw, const int yw, float* img);
 
 double logLikelihood(const int nelem, const float* data, const float* model);
-float logLikelihoodAVX(const int nelem, const float* data, const float* model);
-float logLikelihoodAVXMasked(const int nelem, const float* data,
-			     const float* model, const int* mask);
+float logLikelihoodSIMD(const int nelem, const float* data, const float* model);
+float logLikelihoodSIMDMasked(const int nelem, const float* data,
+			      const float* model, const int* mask);
 
 void resamplePSF(int psf_nx, int psf_ny,
                  float psf_pixsize,

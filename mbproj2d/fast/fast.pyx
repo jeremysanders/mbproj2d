@@ -12,8 +12,8 @@ cdef extern from "project_cc.hh":
     		     float xc, float yc,
 		     int xw, int yw, float *img)
     double logLikelihood(const int nelem, const float* data, const float* model)
-    float logLikelihoodAVX(const int nelem, const float* data, const float* model)
-    float logLikelihoodAVXMasked(const int nelem, const float* data, const float* model, const int* mask)
+    float logLikelihoodSIMD(const int nelem, const float* data, const float* model)
+    float logLikelihoodSIMDMasked(const int nelem, const float* data, const float* model, const int* mask)
     void resamplePSF(int psf_nx, int psf_ny,
                      float psf_pixsize,
                      float psf_ox, float psf_oy,
@@ -78,7 +78,7 @@ def calcPoissonLogLikelihood(np.ndarray data, np.ndarray model):
 
     nelem = data.shape[0]*data.shape[1]
     #return logLikelihood(nelem, &data_view[0,0], &model_view[0,0])
-    return logLikelihoodAVX(nelem, &data_view[0,0], &model_view[0,0])
+    return logLikelihoodSIMD(nelem, &data_view[0,0], &model_view[0,0])
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -91,7 +91,7 @@ def calcPoissonLogLikelihoodMasked(float[:,::1] data, float[:,::1] model, int[:,
 
     cdef int nelem
     nelem = model.shape[0]*model.shape[1]
-    return logLikelihoodAVXMasked(nelem, &data[0,0], &model[0,0], &mask[0,0])
+    return logLikelihoodSIMDMasked(nelem, &data[0,0], &model[0,0], &mask[0,0])
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
