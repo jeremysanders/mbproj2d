@@ -93,7 +93,7 @@ def imageLoad(img_fname, exp_fname,
     if mask_fname:
         maskf = fits.open(mask_fname, 'readonly')
         mask = maskf[0].data
-        mask = mask & (expimg>0)
+        mask = (mask != 0) & (expimg > 0)
         maskf.close()
         assert mask.shape == img.shape
     else:
