@@ -102,6 +102,50 @@ class PriorGaussian(PriorBase):
     def copy(self):
         return PriorGaussian(self.mu, self.sigma)
 
+class PriorBoundedGaussian(PriorBase):
+    """Gaussian prior Bounded
+
+    :param mu: Gaussian centre
+    :param sigma: Gaussian width
+    :param minval: minimum allowed value
+    :param maxval: maximum allowed value
+    """
+
+    def __init__(self, mu, sigma, minval=None, maxval=None):
+        PriorBase.__init__(self)
+        self.mu = mu
+        self.sigma = sigma
+        if minval is None:
+            minval = -N.inf
+        if maxval is None:
+            maxval = +N.inf
+        self.minval = minval
+        self.maxval = maxval
+
+    def calculate(self, val):
+        if self.sigma > 0 and ( self.minval <= val <= self.maxval ):
+            return (
+                -0.5*math.log(2*math.pi)
+                -math.log(self.sigma)
+                -0.5*((val - self.mu) / self.sigma)**2
+            )
+        else:
+            return -N.inf
+
+        def __repr__(self):
+            return '<PriorBoundedGaussian: mu=%s, sigma=%s, minval=%s, maxval=%s>' % (
+                self.mu, self.sigma, self.minval, self.maxval)
+
+        def paramFromUnit(self, unit):
+            a = (self.minval - self.mu) / self.sigma
+            b = (self.maxval - self.mu) / self.sigma
+            return scipy.stats.truncnorm.ppf(
+                unit, a, b, loc=self.mu, scale=self.sigma)
+
+    def copy(self):
+        return PriorBoundedGaussian(
+            self.mu, self.sigma, self.minval, self.maxval)
+
 class Par:
     """Parameter for model.
 
