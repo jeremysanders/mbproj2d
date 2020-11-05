@@ -132,15 +132,15 @@ class PriorBoundedGaussian(PriorBase):
         else:
             return -N.inf
 
-        def __repr__(self):
-            return '<PriorBoundedGaussian: mu=%s, sigma=%s, minval=%s, maxval=%s>' % (
-                self.mu, self.sigma, self.minval, self.maxval)
+    def __repr__(self):
+        return '<PriorBoundedGaussian: mu=%s, sigma=%s, minval=%s, maxval=%s>' % (
+            self.mu, self.sigma, self.minval, self.maxval)
 
-        def paramFromUnit(self, unit):
-            a = (self.minval - self.mu) / self.sigma
-            b = (self.maxval - self.mu) / self.sigma
-            return scipy.stats.truncnorm.ppf(
-                unit, a, b, loc=self.mu, scale=self.sigma)
+    def paramFromUnit(self, unit):
+        a = (self.minval - self.mu) / self.sigma
+        b = (self.maxval - self.mu) / self.sigma
+        return scipy.stats.truncnorm.ppf(
+            unit, a, b, loc=self.mu, scale=self.sigma)
 
     def copy(self):
         return PriorBoundedGaussian(
