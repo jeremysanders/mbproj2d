@@ -62,7 +62,10 @@ extensions = [
             '-mavx2',
             '-std=c++11',
         ],
-        include_dirs=[np.get_include()]
+        include_dirs=[np.get_include()],
+        # without this the __builtin_cpu_supports does not work on
+        # some gcc versions
+        libraries=['gcc'],
     ),
 ]
 
