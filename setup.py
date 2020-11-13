@@ -77,6 +77,7 @@ install_requires = [
     'h5py',
     'emcee',
     'astropy',
+    'nlopt',
 ]
 
 setup(

@@ -5,3 +5,4 @@ h5py
 numpy
 pyfftw
 scipy
+nlopt

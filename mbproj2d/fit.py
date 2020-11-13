@@ -18,6 +18,11 @@ import numpy as N
 import scipy.optimize
 import pickle
 
+try:
+    import nlopt
+except ImportError:
+    nlopt = None
+
 from . import utils
 from . import fast
 
@@ -74,7 +79,7 @@ class Fit:
     def run(
             self,
             verbose=True, sigdelta=0.01, maxloops=10, maxfititer=None,
-            methods=('Nelder-Mead', 'Powell'),
+            methods=None,
             fitoptions=None,
     ):
         """
@@ -85,11 +90,21 @@ class Fit:
         :param methods: iterate through these fitting methods to look for improvement
         :param fitoptions: options to pass to minimizer
 
+        Default methods are
+          ('LN_SBPLX', 'LN_BOBYQA'): if nlopt is installed
+          ('Nelder-Mead', 'Powell'): if nlopt is not installed
+
         Returns (fit_like, success) where success indicates less than maximum number of iterations were done.
         """
 
         initlike = Likelihood(self.images, self.model, self.pars)
         showlike = [initlike.total]
+
+        if methods is None:
+            if nlopt is None:
+                methods = ('Nelder-Mead', 'Powell')
+            else:
+                methods = ('LN_SBPLX', 'LN_BOBYQA')
 
         if verbose:
             self.printHeader()
@@ -97,7 +112,7 @@ class Fit:
 
         initlike = initlike.total
 
-        def fitfunc(p):
+        def fitfunc(p, *args):
             self.pars.setFree(p)
             like = Likelihood(self.images, self.model, self.pars)
             if verbose and like.total > showlike[0]+sigdelta:
@@ -118,10 +133,24 @@ class Fit:
                 options['maxiter'] = maxfititer
 
             for method in methods:
-                fitpars = scipy.optimize.minimize(
-                    fitfunc, fpars, method=method, options=options)
-                fpars = fitpars.x
-                flike = -fitpars.fun
+                utils.uprint(' Using method %s' % method)
+                if method[:3].lower() == 'ln_':
+                    # nlopt methods
+                    meth = getattr(nlopt, method.upper())
+                    opt = nlopt.opt(meth, len(fpars))
+                    opt.set_min_objective(fitfunc)
+                    opt.set_xtol_abs(1e-3)
+                    lbounds, ubounds = self.pars.bounds()
+                    opt.set_lower_bounds(lbounds)
+                    opt.set_upper_bounds(ubounds)
+                    fpars = opt.optimize(fpars)
+                    flike = -opt.last_optimum_value()
+                else:
+                    # scipy methods
+                    fitpars = scipy.optimize.minimize(
+                        fitfunc, fpars, method=method, options=options)
+                    fpars = fitpars.x
+                    flike = -fitpars.fun
 
             if abs(initlike-flike) < sigdelta:
                 # fit quality stayed the same
