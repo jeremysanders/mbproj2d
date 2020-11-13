@@ -42,6 +42,18 @@ class PriorBase:
     def copy(self):
         return PriorBase()
 
+    def bounds(self):
+        """Return upper and lower bounds."""
+        return -N.inf, N.inf
+
+    def makeValidValue(self, val):
+        """Transform value to pass to model.
+
+        This can, for example, ensure that a model parameter is valid,
+        even if the bounds are soft
+        """
+        return val
+
 class PriorFlat(PriorBase):
     """Flat prior.
 
@@ -69,6 +81,47 @@ class PriorFlat(PriorBase):
 
     def copy(self):
         return PriorFlat(self.minval, self.maxval)
+
+    def bounds(self):
+        return self.minval, self.maxval
+
+class PriorFlatSoft(PriorBase):
+    """Flat prior, where the likelihood is increase sharply increased at the bounds.
+
+    The prior is exponential in width beyond the edges
+
+    :param minval: soft minimum value
+    :param maxval: soft maximum value
+    :param width: width of transition beyond minval/maxval
+
+    """
+
+    def __init__(self, minval, maxval, width=0.01):
+        PriorBase.__init__(self)
+        self.minval = minval
+        self.maxval = maxval
+        self.width = width
+
+    def calculate(self, val):
+        if val < self.minval:
+            scale = (val-self.minval)/self.width
+            return N.exp(scale)-1
+        elif val > self.maxval:
+            scale = (self.maxval-val)/self.width
+            return N.exp(scale)-1
+        else:
+            return 0
+
+    def __repr__(self):
+        return '<PriorFlatSoft: minval=%s, maxval=%s, width=%s>' % (
+            repr(self.minval), repr(self.maxval), repr(self.width)
+        )
+
+    def copy(self):
+        return PriorFlatSoft(self.minval, self.maxval, width=self.width)
+
+    def makeValidValue(self, val):
+        return N.clip(val, self.minval, self.maxval)
 
 class PriorGaussian(PriorBase):
     """Gaussian prior
@@ -132,6 +185,8 @@ class PriorBoundedGaussian(PriorBase):
         else:
             return -N.inf
 
+
+
     def __repr__(self):
         return '<PriorBoundedGaussian: mu=%s, sigma=%s, minval=%s, maxval=%s>' % (
             self.mu, self.sigma, self.minval, self.maxval)
@@ -146,6 +201,66 @@ class PriorBoundedGaussian(PriorBase):
         return PriorBoundedGaussian(
             self.mu, self.sigma, self.minval, self.maxval)
 
+    def bounds(self):
+        return self.minval, self.maxval
+
+class PriorBoundedGaussianSoft(PriorBase):
+    """Gaussian prior Bounded with soft limits
+
+    :param mu: Gaussian centre
+    :param sigma: Gaussian width
+    :param minval: minimum allowed value
+    :param maxval: maximum allowed value
+    """
+
+    def __init__(self, mu, sigma, minval=None, maxval=None, width=0.01):
+        PriorBase.__init__(self)
+        self.mu = mu
+        self.sigma = sigma
+        if minval is None:
+            minval = -N.inf
+        if maxval is None:
+            maxval = +N.inf
+        self.minval = minval
+        self.maxval = maxval
+        self.width = width
+
+    def calculate(self, val):
+        if self.sigma < 0:
+            return -N.inf
+
+        gfunc = (
+            -0.5*math.log(2*math.pi)
+            -math.log(self.sigma)
+            -0.5*((val - self.mu) / self.sigma)**2
+        )
+        # add on sharp edges
+        if val < self.minval:
+            scale = (val-self.minval)/self.width
+            gfunc += N.exp(scale)-1
+        elif val > self.maxval:
+            scale = (self.maxval-val)/self.width
+            gfunc += N.exp(scale)-1
+
+        return gfunc
+
+    def __repr__(self):
+        return '<PriorBoundedGaussianSoft: mu=%s, sigma=%s, minval=%s, maxval=%s, width=%s>' % (
+            self.mu, self.sigma, self.minval, self.maxval, self.width)
+
+    def paramFromUnit(self, unit):
+        a = (self.minval - self.mu) / self.sigma
+        b = (self.maxval - self.mu) / self.sigma
+        return scipy.stats.truncnorm.ppf(
+            unit, a, b, loc=self.mu, scale=self.sigma)
+
+    def copy(self):
+        return PriorBoundedGaussianSoft(
+            self.mu, self.sigma, self.minval, self.maxval, width=self.width)
+
+    def makeValidValue(self, val):
+        return N.clip(val, self.minval, self.maxval)
+
 class Par:
     """Parameter for model.
 
@@ -156,16 +271,20 @@ class Par:
     :param linked: another Par object to link this parameter to another
     :param float minval: minimum value for default flat prior
     :param float maxval: maximum value for default flat prior
+    :param soft: use a soft flat prior instead of a sharp one
     """
 
     def __init__(
             self, val, prior=None, frozen=False, xform=None, linked=None,
-            minval=-N.inf, maxval=N.inf):
+            minval=-N.inf, maxval=N.inf, soft=False):
         self.val = val
         self.frozen = frozen
 
         if prior is None:
-            self.prior = PriorFlat(minval, maxval)
+            if soft:
+                self.prior = PriorFlatSoft(minval, maxval)
+            else:
+                self.prior = PriorFlat(minval, maxval)
         else:
             self.prior = prior
 
@@ -186,6 +305,8 @@ class Par:
             val = self.val
         else:
             val = self.linked.val
+
+        val = self.prior.makeValidValue(val)
 
         if self.xform is None:
             return val
@@ -386,3 +507,14 @@ class Pars(dict):
 
         for par in self.match(pattern, use_re=use_re).values():
             par.val = next(valiter)
+
+    def bounds(self):
+        """Return lower,upper bounds for free parameters."""
+
+        lower = []
+        upper = []
+        for par in self.freeKeys():
+            l, u = self[par].prior.bounds()
+            lower.append(l)
+            upper.append(u)
+        return lower, upper
