@@ -17,6 +17,8 @@
 import math
 import numpy as N
 
+from astropy.io import fits
+
 from .par import Par, PriorGaussian
 from . import utils
 from . import ratecalc
@@ -151,6 +153,27 @@ class TotalModel:
             for model in self.back_models:
                 total += model.prior(pars)
         return total
+
+    def writeToFits(self, filename, pars, mask=True):
+        """Write model as a series of HDUs in a FITS file.
+
+        :param filename: FITS filename
+        :param pars: pars dictionary
+        :param mask: mask out masked pixels
+        """
+
+        hdus = [fits.PrimaryHDU()]
+        modimgs = self.compute(pars)
+        for image, mod in zip(self.images, modimgs):
+            hdu = fits.ImageHDU(mod)
+            if mask:
+                mod[image.mask==0] = N.nan
+            hdu.header['EXTNAME'] = image.img_id
+            if image.wcs is not None:
+                hdu.header.extend(image.wcs.to_header().cards)
+            hdus.append(hdu)
+        hdulist = fits.HDUList(hdus)
+        hdulist.writeto(filename, overwrite=True)
 
 class BackModelBase:
     """Base background model. Does nothing.
