@@ -104,11 +104,11 @@ class PriorFlatSoft(PriorBase):
 
     def calculate(self, val):
         if val < self.minval:
-            scale = (val-self.minval)/self.width
-            return N.exp(scale)-1
+            scale = (self.minval-val)/self.width
+            return -(N.exp(scale)-1)
         elif val > self.maxval:
-            scale = (self.maxval-val)/self.width
-            return N.exp(scale)-1
+            scale = (val-self.maxval)/self.width
+            return -(N.exp(scale)-1)
         else:
             return 0
 
@@ -185,8 +185,6 @@ class PriorBoundedGaussian(PriorBase):
         else:
             return -N.inf
 
-
-
     def __repr__(self):
         return '<PriorBoundedGaussian: mu=%s, sigma=%s, minval=%s, maxval=%s>' % (
             self.mu, self.sigma, self.minval, self.maxval)
@@ -236,11 +234,11 @@ class PriorBoundedGaussianSoft(PriorBase):
         )
         # add on sharp edges
         if val < self.minval:
-            scale = (val-self.minval)/self.width
-            gfunc += N.exp(scale)-1
+            scale = (self.minval-val)/self.width
+            gfunc -= N.exp(scale)-1
         elif val > self.maxval:
-            scale = (self.maxval-val)/self.width
-            gfunc += N.exp(scale)-1
+            scale = (val-self.maxval)/self.width
+            gfunc -= N.exp(scale)-1
 
         return gfunc
 
