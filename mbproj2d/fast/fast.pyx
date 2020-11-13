@@ -30,6 +30,7 @@ cdef extern from "project_cc.hh":
     double logLikelihood(const int nelem, const float* data, const float* model)
     float logLikelihoodSIMD(const int nelem, const float* data, const float* model)
     float logLikelihoodSIMDMasked(const int nelem, const float* data, const float* model, const int* mask)
+    float logLikelihoodPreciseMasked(const int nelem, const float* data, const float* model, const int* mask)
     void resamplePSF(int psf_nx, int psf_ny,
                      float psf_pixsize,
                      float psf_ox, float psf_oy,
@@ -98,7 +99,7 @@ def calcPoissonLogLikelihood(np.ndarray data, np.ndarray model):
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def calcPoissonLogLikelihoodMasked(float[:,::1] data, float[:,::1] model, int[:,::1] mask):
+def calcPoissonLogLikelihoodMasked(float[:,::1] data, float[:,::1] model, int[:,::1] mask, precise=False):
 
     assert data.shape[0] == model.shape[0]
     assert mask.shape[0] == model.shape[0]
@@ -107,7 +108,11 @@ def calcPoissonLogLikelihoodMasked(float[:,::1] data, float[:,::1] model, int[:,
 
     cdef int nelem
     nelem = model.shape[0]*model.shape[1]
-    return logLikelihoodSIMDMasked(nelem, &data[0,0], &model[0,0], &mask[0,0])
+    # always use precise method as it's faster for sparse cts
+    if True: #precise:
+        return logLikelihoodPreciseMasked(nelem, &data[0,0], &model[0,0], &mask[0,0])
+    else:
+        return logLikelihoodSIMDMasked(nelem, &data[0,0], &model[0,0], &mask[0,0])
 
 @cython.boundscheck(False)
 @cython.wraparound(False)

@@ -230,6 +230,24 @@ float logLikelihoodSIMDMasked(int nelem, const float* data, const float* model, 
     return logLikelihoodTMasked<VecF4,VecI4>(nelem, data, model, mask);
 }
 
+double logLikelihoodPreciseMasked(int nelem, const float* data, const float* model, const int* mask)
+{
+  // keeps track of the two components before adding them at the end
+  double sum1 = 0;
+  double sum2 = 0;
+  for(int i=0; i<nelem; ++i)
+    {
+      if(mask[i])
+        {
+          // it's a lot faster not to calculate a log, so avoid doing
+          // so if it's multiplied by zero
+          if(data[i] != 0)
+            sum1 += double(data[i]*log(model[i]));
+          sum2 -= double(model[i]);
+        }
+    }
+  return sum1 + sum2;
+}
 
 // resample a PSF image between two different image resolutions
 void resamplePSF(int psf_nx, int psf_ny,

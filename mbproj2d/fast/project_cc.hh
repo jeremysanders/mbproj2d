@@ -28,6 +28,8 @@ double logLikelihood(const int nelem, const float* data, const float* model);
 float logLikelihoodSIMD(const int nelem, const float* data, const float* model);
 float logLikelihoodSIMDMasked(const int nelem, const float* data,
 			      const float* model, const int* mask);
+double logLikelihoodPreciseMasked(int nelem, const float* data, const float* model,
+                                  const int* mask);
 
 void resamplePSF(int psf_nx, int psf_ny,
                  float psf_pixsize,
