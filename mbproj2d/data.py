@@ -19,6 +19,7 @@ from scipy.special import gammaln
 
 from . import utils
 from . import fast
+from astropy.wcs import WCS
 
 class Image:
     """Image class details images to fit.
@@ -147,6 +148,52 @@ class Image:
         newmask[:odim0,:odim1] = N.where(mask, 1, 0)
 
         return newimage, newexpmaps, newmask
+
+    def binUp(self, factor):
+        """Return binned copy of image.
+
+        :param factor: integer bin factor
+        """
+
+        neworigin = (self.origin[0]/factor, self.origin[1]/factor)
+
+        # bin up cts
+        newimg = utils.binImage(self.imagearr, factor)
+
+        # mask, keeping pixels where there are no masked pixels in any subpixel
+        newmask = (
+            utils.binImage(N.where(self.mask, 1, 0), factor) == 
+            utils.binImage(N.ones(self.mask.shape, dtype=N.int32), factor)
+        )
+
+        # compute binned up mean exposure maps
+        newexpmaps = {
+            name: utils.binImage(expmap, factor, mean=True)
+            for name, expmap in self.expmaps.items()
+        }
+
+        # rescale WCS if given
+        newwcs = None
+        if self.wcs is not None:
+            hdr = self.wcs.to_header()
+            hdr['CDELT1'] = hdr['CDELT1'] * factor
+            hdr['CDELT2'] = hdr['CDELT2'] * factor
+            hdr['CRPIX1'] = (hdr['CRPIX1']-1)/factor + 1
+            hdr['CRPIX2'] = (hdr['CRPIX2']-1)/factor + 1
+            newwcs = WCS(hdr)
+
+        return Image(
+            self.img_id,
+            newimg,
+            emin_keV=self.emin_keV, emax_keV=self.emax_keV,
+            rmf=self.rmf, arf=self.arf,
+            pixsize_as=self.pixsize_as*factor,
+            expmaps=newexpmaps,
+            mask=newmask,
+            psf=self.psf,
+            origin=neworigin,
+            wcs=newwcs,
+        )
 
 class PSF:
     """PSF modelling class.

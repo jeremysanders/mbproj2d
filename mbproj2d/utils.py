@@ -211,3 +211,29 @@ def loadChainFromFile(chainfname, pars, burn=0, thin=10, randsamples=None):
             chain = chain.reshape(-1, chain.shape[2])
 
     return chain
+
+def binImage(img, factor, mean=False):
+    """Bin up image by factor.
+
+    :param img: input image array
+    :param factor: integer bin factor for both dimensions
+    :param mean: If True, calculate means, otherwise calculate sums
+    """
+
+    oyw, oxw = img.shape
+
+    nyw = oyw//factor if oyw%factor==0 else oyw//factor+1
+    nxw = oxw//factor if oxw%factor==0 else oxw//factor+1
+
+    nimg = N.zeros((nyw, nxw), dtype=img.dtype)
+
+    for dy in range(factor):
+        for dx in range(factor):
+            sel = img[dy::factor, dx::factor]
+            nimg[:sel.shape[0], :sel.shape[1]] += sel
+
+    if mean:
+        cts = binImage(N.ones(img.shape, dtype=N.int32), factor)
+        nimg = nimg / cts
+
+    return nimg
