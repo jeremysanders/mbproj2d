@@ -220,57 +220,90 @@ class BackModelFlat(BackModelBase):
 class BackModelVigNoVig(BackModelBase):
     """A background model with vignetted and non-vignetted components.
 
+    The X_vf holds the vignetted fraction. This is an unbounded
+    parameter which is transformed to the vignetting fraction via the
+    sigmoid function. By default it has a Gaussian prior about 0.
+
+    All parameters are log units per square arcsec
+
+    Note that the unvignetted exposure map is multiplied by median of
+    the ratio of the vignetted to unvignetted if rescale_novig is
+    True. This helps to make a seamless transition between the two as
+    a function of X_vf. This reduces the degeneracies between the X_vf
+    and normalisation parameters.
+
     :param name: name of model
     :param pars: dict of parameters
     :param images: list of data.Image objects
-    :param bool log: apply log scaling to value of background
-    :param bool normarea: normalise background to per sq arcsec
     :param defval: default parameter
-    :param expmap: name or index of exposure map to use (if any)
+    :param expmap: name or index of vignetted exposure map to use
+    :param expmap_novig: name or index of unvignetted exposure map to use
+    :param rescale_vig: rescale non-vignetted map by ratio of vig to non-vig
     """
 
     def __init__(
             self, name, pars, images,
-            log=True, normarea=True,
             defval=0.,
             expmap='expmap', expmap_novig='expmap_novig',
+            rescale_novig=True
     ):
         BackModelBase.__init__(self, name, pars, images, expmap=expmap)
-        pars['%s_scale' % name] = Par(
-            1.0, prior=PriorGaussian(1.0, 0.05), frozen=True)
+        pars['%s_logscale' % name] = Par(
+            0, prior=PriorGaussian(0, 0.05), frozen=True)
 
+        self.vigratios = []
         for image in images:
             imgkey = '%s_%s' % (name, image.img_id)
-            if log:
-                pars[imgkey] = Par(defval)
+            pars[imgkey] = Par(defval)
+            pars['%s_vf' % imgkey] = Par(0.1, prior=PriorGaussian(0, 1))
+            if rescale_novig:
+                self.vigratios.append( N.median(
+                    (image.expmaps[expmap] /
+                     image.expmaps[expmap_novig])[image.mask != 0]
+                ))
             else:
-                pars[imgkey] = Par(defval, minval=0.)
-            pars['%s_fvig' % imgkey] = Par(0.5, minval=0., maxval=1.)
+                self.vigratios.append(1)
 
-        self.normarea = normarea
-        self.log = log
         self.expmap = expmap
         self.expmap_novig = expmap_novig
 
     def compute(self, pars, imgarrs):
-        scale = pars['%s_scale' % self.name].v
-        for image, imgarr in zip(self.images, imgarrs):
+        scale = math.exp(pars['%s_logscale' % self.name].v)
+        for i, (image, imgarr) in enumerate(zip(self.images, imgarrs)):
             imgkey = '%s_%s' % (self.name, image.img_id)
 
-            v = pars[imgkey].v
-            if self.log:
-                v = math.exp(v)
-            if self.normarea:
-                v *= image.pixsize_as**2
-            v *= scale
-            fracvig = pars['%s_fvig' % imgkey].v
+            v = math.exp(pars[imgkey].v) * image.pixsize_as**2 * scale
+            fracvig = (lambda x: math.exp(x)/(math.exp(x)+1))(
+                pars['%s_vf' % imgkey].v
+            )
 
-            out = (
-                image.expmaps[self.expmap]*(v*fracvig) +
-                image.expmaps[self.expmap_novig]*(v*(1-fracvig))
+            out = v * (
+                image.expmaps[self.expmap] * fracvig +
+                image.expmaps[self.expmap_novig]*((1-fracvig)*self.vigratios[i])
             )
 
             imgarr += out
+
+    def estimatePars(self, pars, images, binup=8):
+        """Take images and estimate initial background values."""
+
+        scale = math.exp(pars['%s_logscale' % self.name].v)
+        for i, image in enumerate(images):
+            imgkey = '%s_%s' % (self.name, image.img_id)
+
+            fracvig = (lambda x: math.exp(x)/(math.exp(x)+1))(
+                pars['%s_vf' % imgkey].v
+            )
+
+            expmap = (
+                image.expmaps[self.expmap]*fracvig +
+                image.expmaps[self.expmap_novig]*((1-fracvig)*self.vigratios[i])
+            )
+
+            average = N.mean((image.imagearr / expmap)[image.mask != 0])
+            if average > 0:
+                v = math.log(average / scale / image.pixsize_as**2)
+                pars['%s_%s' % (self.name, image.img_id)].val = v
 
 class SrcModelBase:
     """Base class for source models.
