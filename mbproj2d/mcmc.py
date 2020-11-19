@@ -156,7 +156,7 @@ class MCMC:
 
         self.verbprint('Burning in')
         while not self._innerburn(length, autorefit, minfrac, minimprove):
-            self.verbprint('Restarting, as new mininimum found')
+            self.verbprint('Restarting, as new minimum found')
             self.fit.run()
 
     def run(self, length):

@@ -237,3 +237,75 @@ def binImage(img, factor, mean=False):
         nimg = nimg / cts
 
     return nimg
+
+class ConvPSFHelper:
+    """Helper class for doing convolution of image with PSF.
+
+    :param psf: input PSF array (2D image)
+    """
+
+    def __init__(self, psf):
+        self.updatePSF(psf)
+
+    def updatePSF(self, psf):
+        """Set convolution code to use new PSF."""
+        self.psf = psf
+
+        imgshape = self.psf.shape
+        self.in_realimg = pyfftw.zeros_aligned(imgshape, dtype=N.float32)
+        self.in_realpsf = pyfftw.zeros_aligned(imgshape, dtype=N.float32)
+        # output real->complex
+        cshape = (imgshape[0], imgshape[1]//2+1)
+        self.temp_cmplx = pyfftw.zeros_aligned(cshape, dtype=N.complex64)
+        self.temp_cmplxpsf = pyfftw.zeros_aligned(cshape, dtype=N.complex64)
+        self.out_real = pyfftw.zeros_aligned(imgshape, dtype=N.float32)
+
+        self.fwd_fftimg = pyfftw.FFTW(
+            self.in_realimg, self.temp_cmplx,
+            axes=(0,1),
+            direction='FFTW_FORWARD',
+            flags=['FFTW_MEASURE'],
+        )
+        self.bkd_fftout = pyfftw.FFTW(
+            self.temp_cmplx, self.out_real,
+            axes=(0,1),
+            direction='FFTW_BACKWARD',
+            flags=['FFTW_MEASURE'],
+        )
+
+        # compute fft of psf (only used once)
+        self.fwd_fftpsf = pyfftw.FFTW(
+            self.in_realpsf, self.temp_cmplxpsf,
+            axes=(0,1),
+            direction='FFTW_FORWARD',
+            flags=['FFTW_ESTIMATE'],
+        )
+        self.in_realpsf[:,:] = psf
+        self.fwd_fftpsf()
+
+    def doConv(self, inimg, outimg):
+        """Do convolution with PSF.
+
+        :param inimg: where to get input
+        :param outimg: where to place output
+        """
+
+        self.fwd_fftimg.update_arrays(inimg, self.temp_cmplx)
+        self.fwd_fftimg()
+        self.temp_cmplx *= self.temp_cmplxpsf
+        self.bkd_fftout.update_arrays(self.temp_cmplx, outimg)
+        self.bkd_fftout()
+
+    def __getstate__(self):
+        """Get state for pickling.
+
+        (this ensures alignment and plans are setup correctly)
+        """
+        return {'psf': self.psf}
+
+    def __setstate__(self, state):
+        """Set state after unpickling
+
+        (this ensures alignment and plans are setup correctly)
+        """
+        self.updatePSF(state['psf'])

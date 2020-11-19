@@ -149,6 +149,38 @@ class Image:
 
         return newimage, newexpmaps, newmask
 
+    def normalizeExposurePosn(self, ra, dec, rad_arcsec, exposure, expmaps=None):
+        """Normalize exposure maps to have the mean exposure over the region.
+
+        The data are scaled so that the pixels within the circle (ra,
+        dec) within the radius have the exposure given.
+
+        Requires a WCS to set on the input image. The mask is used to
+        remove pixels when averaging.
+
+        :param ra: ra (deg)
+        :param dec: dec (deg)
+        :param rad_arcsec: radius (arcsec)
+        :param exposure: exposure (s)
+        :param expmaps: which exposure maps to process: list or by default, all
+
+        """
+
+        assert self.wcs is not None
+
+        xc, yc = self.wcs.all_world2pix(ra, dec, 0)
+        selpix = N.fromfunction(
+            lambda y, x: (y-yc)**2+(x-xc)**2 < (rad_arcsec/self.pixsize_as)**2,
+            self.imagearr.shape
+        ) & (self.mask != 0)
+
+        if expmaps is None:
+            expmaps = list(self.expmaps)
+
+        for expmap in expmaps:
+            meanval = N.mean(self.expmaps[expmap][selpix])
+            self.expmaps[expmap] *= (exposure/meanval)
+
     def binUp(self, factor):
         """Return binned copy of image.
 
@@ -212,7 +244,7 @@ class PSF:
         self.pixsize_as = pixsize_as
 
         self.resample = None
-        self.fft = None
+        self.conv = None
 
     def copy(self):
         return PSF(
@@ -233,14 +265,13 @@ class PSF:
             psf_ox=self.origin[1],
             psf_oy=self.origin[0],
         )
-        self.fft = utils.run_rfft2(self.resample)
+        self.conv = utils.ConvPSFHelper(self.resample)
 
     def applyTo(self, inimg, minval=1e-10):
+
         """Convolve image with PSF."""
 
-        imgfft = utils.run_rfft2(inimg)
-        imgfft *= self.fft
-        convolved = utils.run_irfft2(imgfft)
+        self.conv.doConv(inimg, inimg)
+
         # make sure convolution is positive
-        fast.clip2DMax(convolved, minval)
-        inimg[:,:] = convolved
+        fast.clip2DMax(inimg, minval)
