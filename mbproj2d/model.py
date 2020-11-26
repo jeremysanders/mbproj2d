@@ -19,7 +19,7 @@ import numpy as N
 
 from astropy.io import fits
 
-from .par import Par, PriorGaussian
+from .par import Par, PriorGaussian, PriorBoundedGaussian
 from . import utils
 from . import ratecalc
 
@@ -277,8 +277,9 @@ class BackModelVigNoVig(BackModelBase):
         self.vigratios = []
         for image in images:
             imgkey = '%s_%s' % (name, image.img_id)
-            pars[imgkey] = Par(defval)
-            pars['%s_vf' % imgkey] = Par(0.1, prior=PriorGaussian(0, 1))
+            pars[imgkey] = Par(defval, minval=-30, maxval=30)
+            pars['%s_vf' % imgkey] = Par(0.1, prior=PriorBoundedGaussian(
+                0, 1, minval=-5, maxval=5))
             if rescale_novig:
                 self.vigratios.append( N.median(
                     (image.expmaps[expmap] /

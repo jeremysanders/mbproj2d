@@ -19,7 +19,7 @@ import numpy as N
 from scipy.special import hyp2f1
 
 from .physconstants import kpc_cm
-from .par import Par, PriorGaussian
+from .par import Par, PriorGaussian, PriorBoundedGaussian
 from . import utils
 
 class Radii:
@@ -217,16 +217,16 @@ class ProfileVikhDensity(ProfileBase):
         self.mode = mode
 
         pars['%s_logn0_1' % name] = Par(math.log(1e-3), minval=-14., maxval=5., soft=True)
-        pars['%s_beta_1' % name] = Par(2/3., minval=0., maxval=4., soft=True)
-        pars['%s_logrc_1' % name] = Par(math.log(300), minval=-2, maxval=8.5, soft=True)
+        pars['%s_beta_1' % name] = Par(2/3., prior=PriorBoundedGaussian(2/3, 0.3, minval=0.2))
+        pars['%s_logrc_1' % name] = Par(math.log(300), prior=PriorGaussian(math.log(100), 1))
         #pars['%s_alpha' % name] = Par(0., minval=-1, maxval=2.)
         pars['%s_alpha' % name] = Par(0.1, prior=PriorGaussian(0, 1))
 
         if mode in {'single', 'double'}:
             #pars['%s_epsilon' % name] = Par(3., minval=0., maxval=5.)
-            pars['%s_epsilon' % name] = Par(3., prior=PriorGaussian(3, 1))
+            pars['%s_epsilon' % name] = Par(0., prior=PriorGaussian(0, 1))
             pars['%s_gamma' % name] = Par(3., minval=0., maxval=10, frozen=True, soft=True)
-            pars['%s_logr_s' % name] = Par(math.log(500), minval=0, maxval=8.5, soft=True)
+            pars['%s_logr_s' % name] = Par(math.log(500), prior=PriorGaussian(math.log(500), 0.5))
 
         if mode == 'double':
             pars['%s_logn0_2' % name] = Par(math.log(0.1), minval=-14., maxval=5., soft=True)
