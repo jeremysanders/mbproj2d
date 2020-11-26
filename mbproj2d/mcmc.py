@@ -14,7 +14,16 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import emcee
+try:
+    import emcee
+except ImportError:
+    emcee = None
+
+try:
+    import zeus
+except ImportError:
+    zeus = None
+
 import h5py
 import numpy as N
 
@@ -38,22 +47,26 @@ class MCMC:
     Handles MCMC analysis of Fit
 
     :param Fit fit: Fit object to use for mcmc
-    :param int walkers: number of emcee walkers to use
+    :param int walkers: number of walkers to use
     :param int processes: number of simultaneous processes to compute likelihoods
     :param float initspread: random Gaussian width added to create initial parameters
     :param moves: moves parameter to emcee.EnsembleSampler
     :param verbose: whether to write progress
+    :param sampler: 'emcee' or 'zeus'
     """
 
     def __init__(
             self, fit,
-            nwalkers=50, processes=1, initspread=0.01, moves=None, verbose=True):
+            nwalkers=50, processes=1, initspread=0.01, moves=None, verbose=True,
+            sampler='emcee',
+    ):
 
         self.fit = fit
         self.nwalkers = nwalkers
         self.numpars = fit.pars.numFree()
         self.initspread = initspread
         self.verbose = verbose
+        self.sampler_mode = sampler
 
         mcmcpars = fit.pars.copy()
 
@@ -65,13 +78,28 @@ class MCMC:
         pool = None if processes <= 1 else _MultiProcessPool(likefunc, processes)
 
         # for doing the mcmc sampling
-        self.sampler = emcee.EnsembleSampler(
-            nwalkers,
-            self.numpars,
-            likefunc,
-            pool=pool,
-            moves=moves
-        )
+        if sampler == 'emcee':
+            if emcee is None:
+                raise RuntimeError('emcee module not installed')
+            self.sampler = emcee.EnsembleSampler(
+                nwalkers,
+                self.numpars,
+                likefunc,
+                pool=pool,
+                moves=moves
+            )
+        elif sampler == 'zeus':
+            if zeus is None:
+                raise RuntimeError('zeus module not installed')
+            self.sampler = zeus.EnsembleSampler(
+                nwalkers,
+                self.numpars,
+                likefunc,
+                pool=pool,
+            )
+        else:
+            raise RuntimeError('Unknown sampler')
+
         # starting point
         self.pos0 = None
 
@@ -146,6 +174,18 @@ class MCMC:
         self.sampler.reset()
         return True
 
+    def _innerburnzeus(self, length):
+        """Do burn-in for zeus sampler."""
+
+        # record period
+        self.header['burn'] = length
+
+        p0 = self._generateInitPars()
+        self.sampler.run(p0, length)
+        self.pos0 = self.sampler.get_chain()[-1,:,:]
+        self.sampler.reset()
+        return True
+
     def burnIn(self, length, autorefit=True, minfrac=0.2, minimprove=0.01):
         """Burn in, restarting fit and burn if necessary.
 
@@ -155,9 +195,13 @@ class MCMC:
         """
 
         self.verbprint('Burning in')
-        while not self._innerburn(length, autorefit, minfrac, minimprove):
-            self.verbprint('Restarting, as new minimum found')
-            self.fit.run()
+
+        if self.sampler_mode == 'emcee':
+            while not self._innerburn(length, autorefit, minfrac, minimprove):
+                self.verbprint('Restarting, as new minimum found')
+                self.fit.run()
+        elif self.sampler_mode == 'zeus':
+            self._innerburnzeus(length)
 
     def run(self, length):
         """Run chain.
@@ -176,21 +220,17 @@ class MCMC:
             self.verbprint(' Starting from end of burn-in position')
             p0 = self.pos0
 
-        # do sampling
-        for i, result in enumerate(self.sampler.sample(
-                p0, iterations=length)):
-
-            if i % 10 == 0:
-                self.verbprint(' Step %i / %i (%.1f%%)' % (
-                    i, length, i*100/length))
+        self.verbprint(' doing sampling')
+        self.sampler.run_mcmc(p0, nsteps=length, progress=True)
 
         self.verbprint('Done')
 
-    def save(self, outfilename, thin=1):
+    def save(self, outfilename, thin=1, discard=0):
         """Save chain to HDF5 file.
 
         :param str outfilename: output hdf5 filename
         :param int thin: save every N samples from chain
+        :param int discard: discard first N samples
         """
 
         self.header['thin'] = thin
@@ -208,18 +248,21 @@ class MCMC:
             # output chain
             f.create_dataset(
                 'chain',
-                data=self.sampler.chain[:, ::thin, :].astype(N.float32),
+                data=self.sampler.get_chain(
+                    thin=thin, discard=discard).astype(N.float32),
                 compression=True, shuffle=True)
             # likelihoods for each walker, iteration
             f.create_dataset(
                 'likelihood',
-                data=self.sampler.lnprobability[:, ::thin].astype(N.float64),
+                data=self.sampler.get_log_prob(
+                    thin=thin, discard=discard).astype(N.float64),
                 compression=True,
                 shuffle=True
             )
-            # acceptance fraction
-            f['acceptfrac'] = self.sampler.acceptance_fraction.astype(N.float32)
+            if self.sampler_mode == 'emcee':
+                # acceptance fraction
+                f['acceptfrac'] = self.sampler.acceptance_fraction.astype(N.float32)
             # last position in chain
-            f['lastpos'] = self.sampler.chain[:, -1, :].astype(N.float32)
+            f['lastpos'] = self.sampler.get_chain()[-1,:,:]
 
         self.verbprint('Done')
