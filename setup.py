@@ -59,7 +59,6 @@ extensions = [
         fastsourcefiles,
         extra_compile_args = [
             '-fno-math-errno',
-            '-mavx2',
             '-std=c++11',
         ],
         include_dirs=[np.get_include()],
