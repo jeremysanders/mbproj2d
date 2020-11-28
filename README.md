@@ -11,7 +11,6 @@ Copyright Jeremy Sanders (2020)
 License: LGPLv3
 
 Requirements:
- - Intel and AMD x86-64 processors with AVX2/SSE4.1 support
  - python3
  - numpy
  - scipy
@@ -30,4 +29,4 @@ Usage notes:
 
  - If using a PSF model, I suggest fitting a larger region of the sky than necessary, but masking out the edges. Do not zero the exposure map in these regions. The PSF modelling uses a FFT convolution, so the model will wrap around at the edges.
  
- - Input images must have even numbers of pixels on each axis (no longer true if optimal_size set)
+ - Input images must have even numbers of pixels on each axis if optimal_size not set
