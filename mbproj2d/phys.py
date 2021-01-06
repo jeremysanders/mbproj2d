@@ -108,6 +108,9 @@ class Phys:
             self.out_edges_kpc[1:],self.out_edges_kpc[:-1])
         self.out_vol_cm3 = self.out_vol_kpc3 * kpc3_cm3
 
+        self.out_projmatrix = utils.projectionVolumeMatrix(
+            self.out_edges_kpc) * kpc3_cm3
+
         # calculate function to go from linearily binned profiles to
         # output profiles, depending on the average method chosen
         binidxs = N.searchsorted(self.out_edges_kpc, self.radii.cent_kpc)
@@ -164,16 +167,22 @@ class Phys:
         # split quantities about shell midpoint, so result is
         # independent of binning
         fi, fo = fracMassHalf(N.arange(nshells), self.out_edges_kpc)
+        def calc_cuml_midpt(vals):
+            return vals*fi + N.concatenate(([0], N.cumsum(vals)[:-1]))
 
         Lshell = emiss_bolo * self.out_vol_cm3
-        v['L_bolo_cuml_ergps'] = Lshell*fi + N.concatenate((
-            [0], N.cumsum(Lshell)[:-1]))
-        v['Mgas_cuml_Msun'] = v['Mgas_Msun']*fi + N.concatenate((
-            [0], N.cumsum(v['Mgas_Msun'])[:-1]))
-        Lshell = self.fluxcalc_lumin.get(
-            T_keV, Z_solar, norm_pkpc3) * self.out_vol_kpc3 * self.flux_to_lumin
-        v['L_cuml_%g_%g_ergps' % self.luminrange] = Lshell*fi + N.concatenate((
-            [0], N.cumsum(Lshell)[:-1]))
+        v['L_cuml_bolo_ergps'] = calc_cuml_midpt(Lshell)
+        v['Mgas_cuml_Msun'] = calc_cuml_midpt(v['Mgas_Msun'])
+        emiss_band = self.fluxcalc_lumin.get(T_keV, Z_solar, norm_pkpc3) * (
+            self.flux_to_lumin / kpc3_cm3)
+        Lshell_band = emiss_band * self.out_vol_cm3
+        v['L_cuml_%g_%g_ergps' % self.luminrange] = calc_cuml_midpt(Lshell_band)
+
+        # cumulative projected luminosity
+        Lproj_bolo = self.out_projmatrix.dot(emiss_bolo)
+        v['L_proj_cuml_bolo_ergps'] = calc_cuml_midpt(Lproj_bolo)
+        Lproj_band = self.out_projmatrix.dot(emiss_band)
+        v['L_proj_cuml_%g_%g_ergps' % self.luminrange] = calc_cuml_midpt(Lproj_band)
 
         # total mass (computed from g)
         v['Mtot_cuml_Msun'] = v['g_cmps2']*self.out_centre_cm**2/G_cgs/solar_mass_g
