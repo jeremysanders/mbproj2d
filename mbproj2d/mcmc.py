@@ -242,8 +242,8 @@ class MCMC:
                 f.attrs[h] = self.header[h]
 
             # write list of parameters which are thawed
-            f['thawed_params'] = [
-                x.encode('utf-8') for x in self.fit.pars.freeKeys()]
+            f['thawed_params'] = N.array([
+                x.encode('utf-8') for x in self.fit.pars.freeKeys()])
 
             # output chain
             f.create_dataset(
