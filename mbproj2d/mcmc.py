@@ -203,7 +203,7 @@ class MCMC:
         elif self.sampler_mode == 'zeus':
             self._innerburnzeus(length)
 
-    def run(self, length):
+    def run(self, length, progress=True):
         """Run chain.
 
         :param int length: length of chain
@@ -221,7 +221,7 @@ class MCMC:
             p0 = self.pos0
 
         self.verbprint(' doing sampling')
-        self.sampler.run_mcmc(p0, nsteps=length, progress=True)
+        self.sampler.run_mcmc(p0, nsteps=length, progress=progress)
 
         self.verbprint('Done')
 
