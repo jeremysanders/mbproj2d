@@ -30,7 +30,8 @@ def imageLoad(img_fname, exp_fname,
               exp_novig_fname=None,
               origin=None, pix_origin=None,
               mask_fname=None, psf=None,
-              band_name=None):
+              band_name=None,
+              pad=0):
     """A helper to construct an Image from input fits images
 
     :param img_fname: input fits image filename
@@ -44,7 +45,8 @@ def imageLoad(img_fname, exp_fname,
     :param pix_origin: override above with origin (y,x) in pixels (optional)
     :param mask_fname: name of filename to get mask image (uses exposure>0 by default)
     :param band_name: name for band (default "X.XX_Y.YY" with emin/emax)
-    
+    :param pad: number of pixels to pad image size with zeros at edge (to avoid convolution wrapping)
+
     Exposure maps loaded in the Band object are given names 'expmap' and optionally 'expmap_novig'
     """
 
@@ -114,6 +116,7 @@ def imageLoad(img_fname, exp_fname,
         origin=pix_origin,
         psf=psf,
         wcs=wcs,
+        pad=pad,
     )
 
     return img

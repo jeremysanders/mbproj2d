@@ -37,6 +37,7 @@ class Image:
     :param origin: position in pixels (y,x) coordinates are measured relative to (should be same position in all images)
     :param wcs: optional WCS stored with this image
     :param optimal_size: expand images to be optimal size for PSF convolution
+    :param pad: pad image sizes by size given to ensure convolution doesn't wrap
     """
 
     def __init__(
@@ -51,6 +52,7 @@ class Image:
             origin=(0,0),
             wcs=None,
             optimal_size=True,
+            pad=0,
     ):
         self.img_id = img_id
         self.emin_keV = emin_keV
@@ -63,7 +65,7 @@ class Image:
 
         if optimal_size:
             imagearr, expmaps, mask = self._expandOptimal(
-                imagearr, expmaps, mask)
+                imagearr, expmaps, mask, pad)
 
         # copy image
         self.shape = imagearr.shape
@@ -91,7 +93,7 @@ class Image:
 
         self.origin = origin
 
-    def _expandOptimal(self, imagearr, expmaps, mask):
+    def _expandOptimal(self, imagearr, expmaps, mask, pad):
         """Expand image sizes to be optimal for FFT speed
 
         pyfftw works fastest on images which are factors of
@@ -120,8 +122,8 @@ class Image:
 
         # find next largest size
         odim0, odim1 = imagearr.shape
-        dim0 = fastdims[N.searchsorted(fastdims, odim0)]
-        dim1 = fastdims[N.searchsorted(fastdims, odim1)]
+        dim0 = fastdims[N.searchsorted(fastdims, odim0+pad)]
+        dim1 = fastdims[N.searchsorted(fastdims, odim1+pad)]
 
         # no expansion necessary
         if odim0==dim0 and odim1==dim1:
@@ -194,7 +196,7 @@ class Image:
 
         # mask, keeping pixels where there are no masked pixels in any subpixel
         newmask = (
-            utils.binImage(N.where(self.mask, 1, 0), factor) == 
+            utils.binImage(N.where(self.mask, 1, 0), factor) ==
             utils.binImage(N.ones(self.mask.shape, dtype=N.int32), factor)
         )
 
