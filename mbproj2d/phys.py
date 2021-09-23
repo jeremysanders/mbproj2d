@@ -183,6 +183,8 @@ class Phys:
         v['L_proj_cuml_bolo_ergps'] = calc_cuml_midpt(Lproj_bolo)
         Lproj_band = self.out_projmatrix.dot(emiss_band)
         v['L_proj_cuml_%g_%g_ergps' % self.luminrange] = calc_cuml_midpt(Lproj_band)
+        fluxproj_band = (self.out_projmatrix/kpc3_cm3).dot(flux_pkpc3)
+        v['flux_proj_cuml_%g_%g_ergpspcm2' % self.fluxrange] = calc_cuml_midpt(fluxproj_band)
 
         # total mass (computed from g)
         v['Mtot_cuml_Msun'] = v['g_cmps2']*self.out_centre_cm**2/G_cgs/solar_mass_g
