@@ -105,9 +105,13 @@ class PriorFlatSoft(PriorBase):
     def calculate(self, val):
         if val < self.minval:
             scale = (self.minval-val)/self.width
+            if abs(scale > 40):
+                return -N.inf
             return -(N.exp(scale)-1)
         elif val > self.maxval:
             scale = (val-self.maxval)/self.width
+            if abs(scale > 40):
+                return -N.inf
             return -(N.exp(scale)-1)
         else:
             return 0
