@@ -21,6 +21,8 @@ import sys
 import os
 import time
 import uuid
+import hashlib
+import pickle
 
 import numpy as N
 import h5py
@@ -145,8 +147,7 @@ class WithLock:
         self.filename = filename
 
     def __enter__(self):
-        timeout = 500 # seconds
-        for i in range(timeout):
+        while True:
             try:
                 os.mkdir(self.filename)
                 break
@@ -309,3 +310,68 @@ class ConvPSFHelper:
         (this ensures alignment and plans are setup correctly)
         """
         self.updatePSF(state['psf'])
+
+class CacheOnKey:
+    """Cacheing class which writes to a pickled file in a subdirectory.
+
+    Items are indexed via md5 hash.
+
+    The first two characters are used to create a subdirectory within
+    cachedir to reduce the number of files per directory.
+    """
+
+    cachedir = 'mbproj2d_cache'
+
+    def __init__(self, key):
+        self.key = key
+        h = hashlib.md5()
+        h.update(key.encode('utf8'))
+        self.keyhash = h.hexdigest()
+        self.subdir = os.path.join(self.cachedir, self.keyhash[:2])
+        self.resultsfile = os.path.join(
+            self.subdir, self.keyhash+'.pickle')
+        self.lockfile = os.path.join(
+            self.subdir, self.keyhash+'.lock')
+
+    def __enter__(self):
+        # make the output directory and subdirectory if required
+        os.makedirs(self.subdir, exist_ok=True)
+
+        # create the lockfile directory (wait if reqd)
+        while True:
+            try:
+                os.mkdir(self.lockfile)
+                break
+            except OSError:
+                time.sleep(1)
+        return self
+
+    def __exit__(self, type, value, traceback):
+        # remove lock directory
+        os.rmdir(self.lockfile)
+
+    def exists(self):
+        """Return whether cached value exists."""
+        return os.path.exists(self.resultsfile)
+
+    def read(self):
+        """Read cached value, or returns KeyError if not found."""
+
+        try:
+            with open(self.resultsfile, 'rb') as fin:
+                keyin, res = pickle.load(fin)
+        except FileNotFoundError:
+            raise KeyError('No such key to load')
+
+        assert keyin == self.key
+        return res
+
+    def write(self, val):
+        """Update or write the cached value."""
+
+        with open(self.resultsfile, 'wb') as fout:
+            pickle.dump(
+                (self.key, val),
+                fout,
+                protocol=pickle.HIGHEST_PROTOCOL
+            )
