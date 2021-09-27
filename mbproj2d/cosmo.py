@@ -21,6 +21,7 @@ TODO: Replace with astopy's versions?
 
 # Taken from Ned Wright's cosmology calculator."""
 
+import physconst
 from math import sqrt, pi, sin, exp
 
 c = 299792.458 # velocity of light in km/sec
@@ -144,6 +145,11 @@ class Cosmology:
         self._calc_D_L = DL_Mpc
         self._calc_kpc_DA = kpc_DA
 
+        # added by JSS
+        Hz_km_s_Mpc = H0 * sqrt( WM*(1.+z)**3 + WV )
+        self._calc_rho_c = 3. * (
+            Hz_km_s_Mpc / physconst.Mpc_km )**2 / (8 * pi * physconst.G_cgs)
+
     @property
     def D_A(self):
         """Get angular diameter distance in Mpc."""
@@ -161,3 +167,10 @@ class Cosmology:
         """Get number of kpc per arcsec."""
         self._calculate()
         return self._calc_kpc_DA
+
+    @property
+    def rho_c(self):
+        """Get critical density of universe (cgs)."""
+        self._calculate()
+        return self._calc_rho_c
+

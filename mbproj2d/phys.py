@@ -18,6 +18,7 @@ import math
 from collections import defaultdict
 import numpy as N
 import h5py
+import scipy.optimize
 
 from .profile import Radii
 from . import utils
@@ -107,6 +108,7 @@ class Phys:
         self.out_vol_kpc3 = (4/3*math.pi)*utils.diffCube(
             self.out_edges_kpc[1:],self.out_edges_kpc[:-1])
         self.out_vol_cm3 = self.out_vol_kpc3 * kpc3_cm3
+        self.out_vol_cuml_cm3 = (4/3*math.pi) * self.out_centre_cm**3
 
         self.out_projmatrix = utils.projectionVolumeMatrix(
             self.out_edges_kpc) * kpc3_cm3
@@ -126,6 +128,8 @@ class Phys:
             self.rebinfn = lambda x: N.bincts(binidxs, weights=x) * invcts
         else:
             raise RuntimeError('Invalid averaging mode')
+
+        self.rho_c = model.cosmo.rho_c
 
     def calc(self, ne_pcm3, T_keV, Z_solar, g_cmps2, phi_ergpg):
         """Given input profiles, calculate output profiles.
@@ -188,6 +192,25 @@ class Phys:
 
         # total mass (computed from g)
         v['Mtot_cuml_Msun'] = v['g_cmps2']*self.out_centre_cm**2/G_cgs/solar_mass_g
+
+        # work out R500, R200, M500, M200
+        rho_g_cm3 = v['Mtot_cuml_Msun'] * solar_mass_g / self.out_vol_cuml_cm3
+        bracket = [self.out_centre_kpc[0], self.out_centre_kpc[-1]]
+        for over in 500, 200:
+            def r_over_fn(r):
+                return N.interp(r, self.out_centre_kpc, rho_g_cm3) - self.rho_c*over
+            r_over = m_over = N.inf
+            if r_over_fn(bracket[0]) > 0 and r_over_fn(bracket[1]) < 0:
+                # search radius where density is over*rho_c
+                res = scipy.optimize.root_scalar(
+                    r_over_fn,
+                    bracket=[self.out_centre_kpc[0], self.out_centre_kpc[-1]])
+                if res.converged:
+                    r_over = res.root
+                    m_over = N.interp(r_over, self.out_centre_kpc, v['Mtot_cuml_Msun'])
+            v['R%g_Mpc' % over] = r_over * 1e-3
+            v['M%g_Msun' % over] = m_over
+
         # and the gas fraction (<r)
         v['fgas_cuml'] = v['Mgas_cuml_Msun'] / v['Mtot_cuml_Msun']
         # free fall fime
