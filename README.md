@@ -19,6 +19,7 @@ Requirements:
  - h5py
  - emcee
  - astropy
+ - nlopt (optional, for better fitting)
 
 Installation instructions using pip:
 
