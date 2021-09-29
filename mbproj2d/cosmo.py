@@ -21,7 +21,7 @@ TODO: Replace with astopy's versions?
 
 # Taken from Ned Wright's cosmology calculator."""
 
-import physconst
+from . import physconstants
 from math import sqrt, pi, sin, exp
 
 c = 299792.458 # velocity of light in km/sec
@@ -148,7 +148,7 @@ class Cosmology:
         # added by JSS
         Hz_km_s_Mpc = H0 * sqrt( WM*(1.+z)**3 + WV )
         self._calc_rho_c = 3. * (
-            Hz_km_s_Mpc / physconst.Mpc_km )**2 / (8 * pi * physconst.G_cgs)
+            Hz_km_s_Mpc / physconstants.Mpc_km )**2 / (8 * pi * physconstants.G_cgs)
 
     @property
     def D_A(self):
