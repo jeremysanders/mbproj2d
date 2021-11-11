@@ -35,6 +35,8 @@ class SBMaps:
     :param images: list of Image objects
     :param img_bincts: Bin images by given counts
     :param prof_origin: Either profile origins in arcsec (cy,cx), relative to image origin, or a SkyCoord
+    :param make_profiles: Whether to make profiles
+    :param make_cvtmaps: Whether to make CVT maps
     """
 
     def __init__(
@@ -42,13 +44,24 @@ class SBMaps:
             img_bincts=10,
             prof_bincts=10, verbose=True,
             prof_origin=(0,0),
+            make_profiles=True,
+            make_cvtmaps=True,
     ):
 
         self.verbose = verbose
         self.images = images
-        self.prof_binmaps, self.prof_binradii = self._binProfiles(
-            prof_bincts, prof_origin)
-        self.cvt_binmaps = self._makeBinmaps(img_bincts)
+
+        if make_profiles:
+            self.prof_binmaps, self.prof_binradii = self._binProfiles(
+                prof_bincts, prof_origin)
+        else:
+            self.prof_binmaps = self.prof_binradii = None
+
+        if make_cvtmaps:
+            self.cvt_binmaps = self._makeBinmaps(img_bincts)
+        else:
+            self.cvt_binmaps = None
+
         self.pars = pars
         self.model = model
 
@@ -166,22 +179,24 @@ class SBMaps:
             modarrs = self.model.compute_separate(pars)
 
             # bin total using CVT binmap
-            for i in range(len(self.images)):
-                modbin = N.bincount(
-                    N.ravel(self.cvt_binmaps[i]), weights=N.ravel(modarrs['total'][i]))
-                modbins_cvt[i].append(modbin)
+            if self.cvt_binmaps is not None:
+                for i in range(len(self.images)):
+                    modbin = N.bincount(
+                        N.ravel(self.cvt_binmaps[i]), weights=N.ravel(modarrs['total'][i]))
+                    modbins_cvt[i].append(modbin)
 
             # do profiles for each component
-            for cmptname in modarrs:
-                for i in range(len(self.images)):
+            if self.prof_binmaps is not None:
+                for cmptname in modarrs:
+                    for i in range(len(self.images)):
 
-                    modbin = N.bincount(
-                        N.ravel(self.prof_binmaps[i]),
-                        weights=N.ravel(modarrs[cmptname][i]))
+                        modbin = N.bincount(
+                            N.ravel(self.prof_binmaps[i]),
+                            weights=N.ravel(modarrs[cmptname][i]))
 
-                    if cmptname not in modbins_profs_cmpts:
-                        modbins_profs_cmpts[cmptname] = [[] for _ in range(len(self.images))]
-                    modbins_profs_cmpts[cmptname][i].append(modbin)
+                        if cmptname not in modbins_profs_cmpts:
+                            modbins_profs_cmpts[cmptname] = [[] for _ in range(len(self.images))]
+                        modbins_profs_cmpts[cmptname][i].append(modbin)
 
             # collect model images
             if model_images:
@@ -313,10 +328,12 @@ class SBMaps:
             del modimgs
 
         # CVT output
-        self._getCVTStats(modbins_cvt, percs, out)
+        if self.cvt_binmaps is not None:
+            self._getCVTStats(modbins_cvt, percs, out)
 
         # profile statistics
-        self._getProfStats(modbins_profs_cmpts, percs, out)
+        if self.prof_binmaps is not None:
+            self._getProfStats(modbins_profs_cmpts, percs, out)
 
         # write to hdf5 file
         if h5fname is not None:
