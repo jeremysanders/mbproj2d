@@ -99,15 +99,15 @@ namespace
           for(int yd=0; yd<bin; ++yd)
             for(int xd=0; xd<bin; ++xd)
               {
-                int x = xi*bin+xd;
-                int y = yi*bin+yd;
-                int idx = x + y*xw;
-                if(mask[idx])
-                  {
-                    tot += inimg[idx];
-                    tot_wx += inimg[idx]*x;
-                    tot_wy += inimg[idx]*y;
-                  }
+                const int x = xi*bin+xd;
+                const int y = yi*bin+yd;
+		const int idx = x + y*xw;
+		if(x<xw && y<yw && mask[idx])
+		  {
+		    tot += inimg[idx];
+		    tot_wx += inimg[idx]*x;
+		    tot_wy += inimg[idx]*y;
+		  }
               }
           if(tot > totmax && tot > mincts)
             {
