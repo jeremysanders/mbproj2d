@@ -184,8 +184,8 @@ void resamplePSF(int psf_nx, int psf_ny,
         for(int sy=0; sy<oversample; ++sy)
           for(int sx=0; sx<oversample; ++sx)
             {
-              const int psfy = int((wrapy+sy*inv_over)*pix_ratio + psf_oy);
-              const int psfx = int((wrapx+sx*inv_over)*pix_ratio + psf_ox);
+              const int psfy = int(floor((wrapy+sy*inv_over)*pix_ratio + psf_oy));
+              const int psfx = int(floor((wrapx+sx*inv_over)*pix_ratio + psf_ox));
               if(psfy >=0 && psfy < psf_ny && psfx >= 0 && psfx < psf_nx)
                 {
                   tot += psf[ psfy*psf_nx + psfx ];
