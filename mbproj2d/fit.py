@@ -121,6 +121,7 @@ class Fit:
             return -like.total
 
         success = True
+        flike = -N.inf
         fpars = self.pars.freeVals()
         for i in range(maxloops):
             if verbose:
@@ -143,8 +144,11 @@ class Fit:
                     lbounds, ubounds = self.pars.bounds()
                     opt.set_lower_bounds(lbounds)
                     opt.set_upper_bounds(ubounds)
-                    fpars = opt.optimize(fpars)
-                    flike = -opt.last_optimum_value()
+                    try:
+                        fpars = opt.optimize(fpars)
+                        flike = -opt.last_optimum_value()
+                    except ValueError as e:
+                        utils.uprint('  Optimization failed: "%s"' % str(e))
                 else:
                     # scipy methods
                     fitpars = scipy.optimize.minimize(

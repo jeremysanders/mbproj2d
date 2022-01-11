@@ -232,7 +232,7 @@ class BackModelFlat(BackModelBase):
         for image, imgarr in zip(self.images, imgarrs):
             v = pars['%s_%s' % (self.name, image.img_id)].v
             if self.log:
-                v = math.exp(v)
+                v = math.exp(min(v, 100))
             if self.normarea:
                 v *= image.pixsize_as**2
             v *= scale
