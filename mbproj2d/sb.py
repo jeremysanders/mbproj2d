@@ -132,6 +132,11 @@ class SBMaps:
             binmap[binmap>lastr] = 0
 
             binmaps.append(binmap)
+            if not binr:
+                # this makes a zero-sized 2D array to allow slicing
+                # later if there weren't enough counts to make a bin
+                binr = N.zeros(shape=(0,2))
+
             binradii.append(N.array(binr))
 
         return binmaps, binradii
