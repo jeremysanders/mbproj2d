@@ -38,8 +38,11 @@ def deleteFile(filename):
 _finishatexit = []
 
 # tcl code to do an infinite evaluation of commands until end
+# includes commands by default
+#   - set trace elements to Fe abundance (1.0 by default)
 tclloop = '''
 autosave off
+xset APEC_TRACE_ABUND Fe
 while { 1 } {
  set s [gets stdin]
  if { [eof stdin] } {
