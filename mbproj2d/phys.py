@@ -177,6 +177,7 @@ class Phys:
         Lshell = emiss_bolo * self.out_vol_cm3
         v['L_cuml_bolo_ergps'] = calc_cuml_midpt(Lshell)
         v['Mgas_cuml_Msun'] = calc_cuml_midpt(v['Mgas_Msun'])
+        v['YX_cuml_Msun_keV'] = calc_cuml_midpt( v['Mgas_Msun']*v['T_keV'] )
         emiss_band = self.fluxcalc_lumin.get(T_keV, Z_solar, norm_pkpc3) * (
             self.flux_to_lumin / kpc3_cm3)
         Lshell_band = emiss_band * self.out_vol_cm3
