@@ -220,7 +220,7 @@ def fit():
         cluster0 = cluster_cmpts[0]
 
         # convert chain to physical profiles for this cluster model
-        phys = mb.Phys(pars, cluster0)
+        phys = mb.Phys(pars, cluster0, rate_rmf=images[0].rmf, rate_arf=images[0].arf)
 
         # Take 1000 random samples from the chain and calculate the median physical
         # profiles and 1-sigma range.

@@ -23,7 +23,7 @@ import scipy.optimize
 from .profile import Radii
 from . import utils
 from .utils import uprint
-from .ratecalc import ApecFluxCalc
+from .ratecalc import ApecFluxCalc, ApecRateCalc
 from .physconstants import (
     kpc_cm, keV_erg, ne_nH, mu_g, mu_e, boltzmann_erg_K, keV_K, Mpc_cm,
     yr_s, solar_mass_g, G_cgs, P_keV_to_erg, km_cm, kpc3_cm3)
@@ -59,6 +59,9 @@ class Phys:
     :param linbin_kpc: internal linear bin size to use before rebinning
     :param fluxrange_keV: energy range to compute (unabsorbed) fluxes between
     :param luminrange_keV: rest energy range to compute luminosities between
+    :param rate_rmf: RMF file to calculate count rates (if required)
+    :param rate_arf: ARF file to calculate count rates (if required)
+    :param rate_bands: Energy ranges to calculate rates within
     """
 
     def __init__(self, pars, model,
@@ -68,6 +71,8 @@ class Phys:
                  average='midpt',
                  fluxrange_keV=(0.5,2.0),
                  luminrange_keV=(0.5,2.0),
+                 rate_rmf=None, rate_arf=None,
+                 rate_bands=((0.3,2.3),(0.5,2.0)),
     ):
         self.pars = pars
         self.model = model
@@ -130,6 +135,17 @@ class Phys:
             raise RuntimeError('Invalid averaging mode')
 
         self.rho_c = model.cosmo.rho_c
+
+        # for calculating rates
+        self.ratecalcs = []
+        if rate_rmf:
+            for band in rate_bands:
+                self.ratecalcs.append((
+                    band,
+                    ApecRateCalc(
+                        rate_rmf, rate_arf, band[0], band[1],
+                        model.NH_1022pcm2, model.cosmo.z),
+                ))
 
     def calc(self, ne_pcm3, T_keV, Z_solar, g_cmps2, phi_ergpg):
         """Given input profiles, calculate output profiles.
@@ -218,6 +234,12 @@ class Phys:
         rho_gpcm3 = (3/4./N.pi)*v['Mtot_cuml_Msun']*solar_mass_g / self.out_centre_cm**3
         v['tff_yr'] = N.sqrt(3*N.pi/32/G_cgs/rho_gpcm3) / yr_s
         v['tcool_tff'] = v['tcool_yr']/v['tff_yr']
+
+        # count rates
+        for band, ratecalc in self.ratecalcs:
+            rate = ratecalc.get(T_keV, Z_solar, norm_pkpc3) * (1/kpc3_cm3)
+            rate_proj = self.out_projmatrix.dot(rate)
+            v['rate_proj_%g_%g_ps' % band] = calc_cuml_midpt(rate_proj)
 
         # Mdots
         Lshell_ergps = v['L_bolo_ergpspcm3'] * self.out_vol_cm3
