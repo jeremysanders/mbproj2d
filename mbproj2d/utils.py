@@ -202,13 +202,13 @@ def loadChainFromFile(chainfname, pars, burn=0, thin=10, randsamples=None):
             raise RuntimeError('Parameters do not match those in chain')
 
         if randsamples is not None:
-            chain = N.array(f['chain'][:, burn:, :])
+            chain = N.array(f['chain'][burn:, :, :])
             chain = chain.reshape(-1, chain.shape[2])
             rows = N.arange(chain.shape[0])
             N.random.shuffle(rows)
             chain = chain[rows[:randsamples], :]
         else:
-            chain = N.array(f['chain'][:, burn::thin, :])
+            chain = N.array(f['chain'][burn::thin, :, :])
             chain = chain.reshape(-1, chain.shape[2])
 
     return chain

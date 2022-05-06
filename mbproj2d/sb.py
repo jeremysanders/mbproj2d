@@ -319,6 +319,9 @@ class SBMaps:
         if self.verbose:
             uprint('SBMaps: Calculating surface brightness stats')
 
+        if chain.size == 0:
+            raise RuntimeError('Empty chain')
+
         modbins_cvt, modbins_profs_cmpts, modimgs = self._doReplay(chain, model_images)
 
         if self.verbose:
