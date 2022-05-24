@@ -27,6 +27,10 @@ cdef extern from "project_cc.hh":
     void add_sb_prof(float rbin, int nbins, const float *sb,
     		     float xc, float yc,
 		     int xw, int yw, float *img)
+    void add_sb_prof_e(float rbin, int nbins, const float *sb,
+                       float xc, float yc,
+                       float e, float theta,
+                       int xw, int yw, float *img)
     double logLikelihood(const int nelem, const float* data, const float* model)
     float logLikelihoodMasked(const int nelem, const float* data, const float* model, const int* mask)
     void resamplePSF(int psf_nx, int psf_ny,
@@ -62,7 +66,7 @@ def projectEmissivity(float rbin, np.ndarray emiss):
 
     return sb
 
-# note: final element in SB profile should be zero
+# "Paint" surface brightness profile onto image
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def addSBToImg(float rbin, float[::1] sb, float xc, float yc,
@@ -74,10 +78,30 @@ def addSBToImg(float rbin, float[::1] sb, float xc, float yc,
     yw = img.shape[0]
     xw = img.shape[1]
 
-    add_sb_prof(
-        rbin, numbins, &sb[0], xc, yc, xw, yw,
-        &img[0,0]
-    )
+    add_sb_prof(rbin, numbins, &sb[0], xc, yc, xw, yw, &img[0,0])
+
+# "Paint" elliptical surface brightness profile onto image
+@cython.boundscheck(False)
+@cython.wraparound(False)
+def addSBToImgE(float rbin, float[::1] sb, float xc, float yc,
+                float e, float theta,
+                float[:,::1] img):
+
+    cdef int numbins, xw, yw
+
+    numbins = sb.shape[0]
+    yw = img.shape[0]
+    xw = img.shape[1]
+
+    if e == 1:
+        # circular (faster)
+        add_sb_prof(rbin, numbins, &sb[0], xc, yc, xw, yw, &img[0,0])
+    else:
+        # elliptical
+        add_sb_prof_e(
+            rbin, numbins, &sb[0], xc, yc, e, theta, xw, yw,
+            &img[0,0]
+        )
 
 @cython.boundscheck(False)
 @cython.wraparound(False)

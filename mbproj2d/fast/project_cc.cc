@@ -26,6 +26,8 @@ using std::ceil;
 using std::min;
 using std::max;
 using std::log;
+using std::sin;
+using std::cos;
 
 template<class T> inline T sqr(T a)
 {
@@ -92,6 +94,7 @@ void project(const float rbin, const int numbins,
     }
 }
 
+// paint surface brightness to image
 void add_sb_prof(const float rbin, const int nbins, const float *sb,
 		 const float xc, const float yc,
 		 const int xw, const int yw,
@@ -116,6 +119,49 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
 	const int i0 = min(int(r), nbins);
 	const int i1 = min(i0+1, nbins);
 	const float w1 = r-int(r);
+	const float w0 = 1-w1;
+
+	const float val = cpy_sb[i0]*w0 + cpy_sb[i1]*w1;
+
+	img[y*xw+x] += val;
+      }
+}
+
+// elliptical version of painting a profile
+void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
+		   const float xc, const float yc,
+		   const float e, const float theta,
+		   const int xw, const int yw,
+		   float *img)
+{
+  // copy to ensure outer bin is 0
+  std::vector<float> cpy_sb(sb, sb+nbins);
+  cpy_sb.push_back(0);
+
+  const int x1 = max(int(xc-rbin*nbins), 0);
+  const int x2 = min(int(xc+rbin*nbins), xw-1);
+  const int y1 = max(int(yc-rbin*nbins), 0);
+  const int y2 = min(int(yc+rbin*nbins), yw-1);
+
+  const float invrbin = 1/rbin;
+  const float inve = 1/e;
+  const float s = sin(theta);
+  const float c = cos(theta);
+
+  for(int y=y1; y<=y2; ++y)
+    for(int x=x1; x<=x2; ++x)
+      {
+	const float dx = x-xc;
+	const float dy = y-yc;
+	const float rx = c*dx - s*dy;
+	const float ry = (s*dx + c*dy)*inve;
+
+	const float r = sqrt(sqr(rx) + sqr(ry)) * invrbin;
+	const int ri = int(r);
+
+	const int i0 = min(ri, nbins);
+	const int i1 = min(i0+1, nbins);
+	const float w1 = r-ri;
 	const float w0 = 1-w1;
 
 	const float val = cpy_sb[i0]*w0 + cpy_sb[i1]*w1;
