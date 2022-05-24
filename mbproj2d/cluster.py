@@ -20,7 +20,7 @@ import numpy as N
 from .model import SrcModelBase
 from .ratecalc import ApecRateCalc
 from .profile import Radii
-from .fast import addSBToImg
+from .fast import addSBToImgE
 from .par import Par
 from . import utils
 from .physconstants import kpc_cm, kpc3_cm3, mu_e, mu_g, G_cgs, P_keV_to_erg
@@ -65,8 +65,16 @@ class ClusterBase(SrcModelBase):
     def compute(self, pars, imgarrs):
         """Add cluster model to images."""
 
-        cy_as = pars['%s_cy' % self.name].v
-        cx_as = pars['%s_cx' % self.name].v
+        cy_as = pars[f'{self.name}_cy'].v
+        cx_as = pars[f'{self.name}_cx'].v
+
+        # optional ellipticity
+        try:
+            e = pars[f'{self.name}_e'].v
+            theta = pars[f'{self.name}_theta'].v
+        except KeyError:
+            e = 1
+            theta = 0
 
         # get plasma profiles for each pixel size
         norm_arr = {}
@@ -95,7 +103,7 @@ class ClusterBase(SrcModelBase):
             pix_cx = cx_as*img.invpixsize + img.origin[1]
 
             # add SB profile to image
-            addSBToImg(1, sb_arr, pix_cx, pix_cy, imgarr)
+            addSBToImgE(1, sb_arr, pix_cx, pix_cy, e, theta, imgarr)
 
     def computeProfiles(self, pars, radii):
         """Compute plasma profiles for use in physical profile computation
