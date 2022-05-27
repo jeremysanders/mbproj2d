@@ -31,17 +31,6 @@ from . import forkparallel
 from .fit import Likelihood
 from . import utils
 
-class _MultiProcessPool:
-    """Internal object to use ForkQueue to evaluate multiple profiles
-    simultaneously."""
-
-    def __init__(self, func, processes):
-        self.queue = forkparallel.ForkQueue(func, processes)
-
-    def map(self, func, args):
-        """Note func is ignored here."""
-        return self.queue.execute(args)
-
 class MCMC:
     """
     Handles MCMC analysis of Fit
@@ -75,7 +64,9 @@ class MCMC:
             like = Likelihood(fit.images, fit.model, mcmcpars)
             return like.total
 
-        pool = None if processes <= 1 else _MultiProcessPool(likefunc, processes)
+        # create a pool if more than one process
+        pool = None if processes <= 1 else forkparallel.ForkQueuePool(
+            likefunc, processes)
 
         # for doing the mcmc sampling
         if sampler == 'emcee':
