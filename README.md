@@ -26,6 +26,10 @@ Installation instructions using pip:
     python3 -m pip install astropy cython emcee h5py numpy pyfftw scipy
     python3 -m pip install git+https://github.com/jeremysanders/mbproj2d
 
+If using conda, the foolowing package is also required for Linux:
+
+    conda install -c conda-forge gxx_linux-64
+
 Usage notes:
 
  - If using a PSF model, I suggest fitting a larger region of the sky than necessary, but masking out the edges. Do not zero the exposure map in these regions. The PSF modelling uses a FFT convolution, so the model will wrap around at the edges. Please note that the `pad=N` option in `Image()` or `imageLoad` will automatically zero-pad images with `N` masked-out pixels.
