@@ -136,7 +136,7 @@ class Phys:
 
         self.rho_c = model.cosmo.rho_c
 
-        # for calculating rates
+        # for calculating rates (with NH and NH=0)
         self.ratecalcs = []
         if rate_rmf:
             for band in rate_bands:
@@ -145,6 +145,9 @@ class Phys:
                     ApecRateCalc(
                         rate_rmf, rate_arf, band[0], band[1],
                         model.NH_1022pcm2, model.cosmo.z),
+                    ApecRateCalc(
+                        rate_rmf, rate_arf, band[0], band[1],
+                        0, model.cosmo.z),
                 ))
 
     def calc(self, ne_pcm3, T_keV, Z_solar, g_cmps2, phi_ergpg):
@@ -236,10 +239,13 @@ class Phys:
         v['tcool_tff'] = v['tcool_yr']/v['tff_yr']
 
         # count rates
-        for band, ratecalc in self.ratecalcs:
-            rate = ratecalc.get(T_keV, Z_solar, norm_pkpc3) * (1/kpc3_cm3)
+        for band, ratecalcNH, ratecalcNH0 in self.ratecalcs:
+            rate = ratecalcNH.get(T_keV, Z_solar, norm_pkpc3) * (1/kpc3_cm3)
             rate_proj = self.out_projmatrix.dot(rate)
             v['rate_proj_%g_%g_ps' % band] = calc_cuml_midpt(rate_proj)
+            rate = ratecalcNH0.get(T_keV, Z_solar, norm_pkpc3) * (1/kpc3_cm3)
+            rate_proj = self.out_projmatrix.dot(rate)
+            v['rate_NH0_proj_%g_%g_ps' % band] = calc_cuml_midpt(rate_proj)
 
         # Mdots
         Lshell_ergps = v['L_bolo_ergpspcm3'] * self.out_vol_cm3
