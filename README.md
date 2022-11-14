@@ -11,6 +11,7 @@ Copyright Jeremy Sanders (2020)
 License: LGPLv3
 
 Requirements:
+ - Xspec (https://heasarc.gsfc.nasa.gov/docs/xanadu/xspec/)
  - python3
  - numpy
  - scipy
