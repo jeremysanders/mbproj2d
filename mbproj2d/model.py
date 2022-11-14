@@ -154,7 +154,8 @@ class TotalModel:
                 total += model.prior(pars)
         return total
 
-    def writeToFits(self, filename, pars, mask=True):
+    def writeToFits(self, filename, pars, mask=True, apply_psf=True,
+                    apply_expmap=True, apply_src=True, apply_back=True):
         """Write model as a series of HDUs in a FITS file.
 
         :param filename: FITS filename
@@ -163,11 +164,14 @@ class TotalModel:
         """
 
         hdus = [fits.PrimaryHDU()]
-        modimgs = self.compute(pars)
+        modimgs = self.compute(
+            pars,
+            apply_psf=apply_psf, apply_expmap=apply_expmap,
+            apply_src=apply_src, apply_back=apply_back)
         for image, mod in zip(self.images, modimgs):
-            hdu = fits.ImageHDU(mod)
             if mask:
                 mod[image.mask==0] = N.nan
+            hdu = fits.ImageHDU(mod)
             hdu.header['EXTNAME'] = image.img_id
             if image.wcs is not None:
                 hdu.header.extend(image.wcs.to_header().cards)
