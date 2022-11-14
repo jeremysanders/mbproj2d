@@ -17,6 +17,7 @@
 import math
 import numpy as N
 from scipy.special import hyp2f1
+import scipy.interpolate
 
 from .physconstants import kpc_cm
 from .par import Par, PriorGaussian, PriorBoundedGaussian
@@ -134,25 +135,39 @@ class ProfileBinned(ProfileBase):
         return outvals
 
 class ProfileInterpol(ProfileBase):
+    """Create interpolated profile between fixed values
 
-    def __init__(self, name, pars, rcent_kpc, defval=0., log=False):
-        """Create interpolated profile between fixed values
+    :param rcent_kpc: where to interpolate between in kpc (sorted)
+    :param defval: initial parameter values
+    :param log: log profile
+    :param extrapolate: extrapolate profile beyond endpoints (for linear)
+    :param mode: interpolation type ('linear', 'cubic', 'quadratic'...)
+    """
 
-        :param rcent_kpc: where to interpolate between in kpc
-        """
+    def __init__(self, name, pars, rcent_kpc, defval=0., log=False, extrapolate=False, mode='linear'):
 
         ProfileBase.__init__(self, name, pars)
         for i in range(len(rcent_kpc)):
             pars['%s_%03i' % (name, i)] = Par(defval)
         self.rcent_logkpc = N.log(rcent_kpc)
         self.log = log
+        self.extrapolate = extrapolate
+        self.mode = mode
 
     def compute(self, pars, radii):
         pvals = N.array([
             pars['%s_%03i' % (self.name, i)].v
             for i in range(len(self.rcent_logkpc))
             ])
-        vals = N.interp(radii.cent_logkpc, self.rcent_logkpc, pvals)
+        if self.mode=='linear' and not self.extrapolate:
+            vals = N.interp(radii.cent_logkpc, self.rcent_logkpc, pvals)
+        else:
+            f = scipy.interpolate.interp1d(
+                self.rcent_logkpc, pvals, assume_sorted=True,
+                kind=self.mode,
+                fill_value='extrapolate')
+            vals = f(radii.cent_logkpc)
+
         if self.log:
             vals = N.exp(vals)
         return vals
