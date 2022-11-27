@@ -37,7 +37,7 @@ class PointPowerlaw(PointBase):
             self, name, pars, images, NH_1022pcm2=NH_1022pcm2, cx=cx, cy=cy)
 
         pars['%s_gamma' % name] = Par(gamma, minval=1.0, maxval=2.5, frozen=True)
-        pars['%s_lognorm' % name] = Par(-13.0)
+        pars['%s_lognorm' % name] = Par(-13.0, minval=-25., maxval=0.)
 
         # this is for calculating the rates in each band
         self.imageRateCalc = {}
