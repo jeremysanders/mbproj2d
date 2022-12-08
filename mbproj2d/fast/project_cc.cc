@@ -144,7 +144,9 @@ void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
   const int y2 = min(int(yc+rbin*nbins), yw-1);
 
   const float invrbin = 1/rbin;
-  const float inve = 1/e;
+  // const float inve = 1/e;
+  const float sqe = sqrt(e);
+  const float sqinve = sqrt(1/e);
   const float s = sin(theta);
   const float c = cos(theta);
 
@@ -153,8 +155,8 @@ void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
       {
 	const float dx = x-xc;
 	const float dy = y-yc;
-	const float rx = c*dx - s*dy;
-	const float ry = (s*dx + c*dy)*inve;
+	const float rx = (c*dx - s*dy)*sqe;
+	const float ry = (s*dx + c*dy)*sqinve;
 
 	const float r = sqrt(sqr(rx) + sqr(ry)) * invrbin;
 	const int ri = int(r);
