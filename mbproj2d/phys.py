@@ -46,6 +46,17 @@ def fracMassHalf(snum, edges):
     foutside = 1 - finside
     return finside, foutside
 
+def make2dtuples(v):
+    """Convert (a,b) to ((a,b),), but keep ((a,b),...)."""
+    if len(v) == 0:
+        return ()
+    try:
+        iter(v[0])
+    except TypeError:
+        # not iterable
+        return (v,)
+    return v
+
 class Phys:
     """Calculate physical profiles for a cluster model.
 
@@ -57,8 +68,8 @@ class Phys:
     :param binning: should be 'log' or 'lin' for bin size
     :param average: should be 'midpt', 'volume', 'mean' for how to convert from input to output bins
     :param linbin_kpc: internal linear bin size to use before rebinning
-    :param fluxrange_keV: energy range to compute (unabsorbed) fluxes between
-    :param luminrange_keV: rest energy range to compute luminosities between
+    :param fluxrange_keV: list of energy ranges to compute (unabsorbed) fluxes between
+    :param luminrange_keV: list of rest frame energy ranges to compute luminosities between
     :param rate_rmf: RMF file to calculate count rates (if required)
     :param rate_arf: ARF file to calculate count rates (if required)
     :param rate_bands: Energy ranges to calculate rates within
@@ -69,8 +80,8 @@ class Phys:
                  linbin_kpc=0.5,
                  binning='log',
                  average='midpt',
-                 fluxrange_keV=(0.5,2.0),
-                 luminrange_keV=(0.5,2.0),
+                 fluxrange_keV=((0.5,2.0),),
+                 luminrange_keV=((0.5,2.0),),
                  rate_rmf=None, rate_arf=None,
                  rate_bands=((0.3,2.3),(0.5,2.0)),
     ):
@@ -79,18 +90,24 @@ class Phys:
 
         self.radii = Radii(linbin_kpc, int(rmax_kpc/linbin_kpc)+1)
 
-        # for getting absorbed fluxes
-        self.fluxrange = fluxrange_keV
-        self.fluxcalc = ApecFluxCalc(
-            fluxrange_keV[0], fluxrange_keV[1],
-            NH_1022pcm2=model.NH_1022pcm2, redshift=model.cosmo.z)
+        # for getting absorbed fluxes (expand to list of ranges if necessary)
+        self.fluxranges = make2dtuples(fluxrange_keV)
+        self.fluxcalcs = [
+            ApecFluxCalc(
+                band[0], band[1], NH_1022pcm2=model.NH_1022pcm2, redshift=model.cosmo.z)
+            for band in self.fluxranges
+        ]
+
         # for getting unabsorbed fluxes in rest band
-        self.luminrange = luminrange_keV
-        self.fluxcalc_lumin = ApecFluxCalc(
-            luminrange_keV[0]/(1+model.cosmo.z),
-            luminrange_keV[1]/(1+model.cosmo.z),
-            redshift=model.cosmo.z,
-            NH_1022pcm2=0)
+        self.luminranges = make2dtuples(luminrange_keV)
+        self.fluxcalcs_lumin = [
+            ApecFluxCalc(
+                band[0]/(1+model.cosmo.z), band[1]/(1+model.cosmo.z),
+                redshift=model.cosmo.z, NH_1022pcm2=0)
+            for band in self.luminranges
+        ]
+
+        # fluxes for bolometric luminosities
         self.fluxcalc_lumin_bolo = ApecFluxCalc(
             0.01, 100, NH_1022pcm2=0, redshift=model.cosmo.z)
 
@@ -150,6 +167,14 @@ class Phys:
                         0, model.cosmo.z),
                 ))
 
+        # fractional in and out for calculating values at midpoints
+        self.fracin, self.fracout = fracMassHalf(N.arange(rsteps), self.out_edges_kpc)
+
+    def calc_cuml_midpt(self, vals):
+        """For calculating cumulative quantities around midpoint,
+        so result is independent of binning."""
+        return vals*self.fracin + N.concatenate(([0], N.cumsum(vals)[:-1]))
+
     def calc(self, ne_pcm3, T_keV, Z_solar, g_cmps2, phi_ergpg):
         """Given input profiles, calculate output profiles.
 
@@ -173,42 +198,38 @@ class Phys:
         v['Mgas_Msun'] = Mgas_g * (1/solar_mass_g)
 
         norm_pkpc3 = self.nesqd_to_norm * ne_pcm3**2
-        flux_pkpc3 = self.fluxcalc.get(T_keV, Z_solar, norm_pkpc3)
-        v['flux_cuml_%g_%g_ergpspcm2' % self.fluxrange] = N.cumsum(
-            flux_pkpc3*self.out_vol_kpc3)
 
+        # get fluxes in bands
+        for band, calc in zip(self.fluxranges, self.fluxcalcs):
+            flux_pkpc3 = calc.get(T_keV, Z_solar, norm_pkpc3)
+            v['flux_cuml_%g_%g_ergpspcm2' % band] = N.cumsum(
+                flux_pkpc3*self.out_vol_kpc3)
+            fluxproj_band = (self.out_projmatrix/kpc3_cm3).dot(flux_pkpc3)
+            v['flux_proj_cuml_%g_%g_ergpspcm2' % band] = self.calc_cuml_midpt(fluxproj_band)
+
+        # luminosities in bands
+        for band, calc in zip(self.luminranges, self.fluxcalcs_lumin):
+            emiss_band = calc.get(T_keV, Z_solar, norm_pkpc3) * (
+                self.flux_to_lumin / kpc3_cm3)
+            Lshell_band = emiss_band * self.out_vol_cm3
+            v['L_cuml_%g_%g_ergps' % band] = self.calc_cuml_midpt(Lshell_band)
+            Lproj_band = self.out_projmatrix.dot(emiss_band)
+            v['L_proj_cuml_%g_%g_ergps' % band] = self.calc_cuml_midpt(Lproj_band)
+
+        # bolometric luminosities
         flux_bolo_pkpc3 = self.fluxcalc_lumin_bolo.get(T_keV, Z_solar, norm_pkpc3)
         emiss_bolo = flux_bolo_pkpc3 * (self.flux_to_lumin/kpc3_cm3)
         v['L_bolo_ergpspcm3'] = emiss_bolo
+        Lshell = emiss_bolo * self.out_vol_cm3
+        v['L_cuml_bolo_ergps'] = self.calc_cuml_midpt(Lshell)
+        Lproj_bolo = self.out_projmatrix.dot(emiss_bolo)
+        v['L_proj_cuml_bolo_ergps'] = self.calc_cuml_midpt(Lproj_bolo)
 
+        # derived quantities
         v['H_ergpcm3'] = (5/2) * v['ne_pcm3'] * (1 + 1/ne_nH) * v['T_keV'] * keV_erg
         v['tcool_yr'] = v['H_ergpcm3'] / v['L_bolo_ergpspcm3'] / yr_s
-
-
-        # cumulative quantities
-        # ---------------------
-        # split quantities about shell midpoint, so result is
-        # independent of binning
-        fi, fo = fracMassHalf(N.arange(nshells), self.out_edges_kpc)
-        def calc_cuml_midpt(vals):
-            return vals*fi + N.concatenate(([0], N.cumsum(vals)[:-1]))
-
-        Lshell = emiss_bolo * self.out_vol_cm3
-        v['L_cuml_bolo_ergps'] = calc_cuml_midpt(Lshell)
-        v['Mgas_cuml_Msun'] = calc_cuml_midpt(v['Mgas_Msun'])
-        v['YX_cuml_Msun_keV'] = calc_cuml_midpt( v['Mgas_Msun']*v['T_keV'] )
-        emiss_band = self.fluxcalc_lumin.get(T_keV, Z_solar, norm_pkpc3) * (
-            self.flux_to_lumin / kpc3_cm3)
-        Lshell_band = emiss_band * self.out_vol_cm3
-        v['L_cuml_%g_%g_ergps' % self.luminrange] = calc_cuml_midpt(Lshell_band)
-
-        # cumulative projected luminosity
-        Lproj_bolo = self.out_projmatrix.dot(emiss_bolo)
-        v['L_proj_cuml_bolo_ergps'] = calc_cuml_midpt(Lproj_bolo)
-        Lproj_band = self.out_projmatrix.dot(emiss_band)
-        v['L_proj_cuml_%g_%g_ergps' % self.luminrange] = calc_cuml_midpt(Lproj_band)
-        fluxproj_band = (self.out_projmatrix/kpc3_cm3).dot(flux_pkpc3)
-        v['flux_proj_cuml_%g_%g_ergpspcm2' % self.fluxrange] = calc_cuml_midpt(fluxproj_band)
+        v['Mgas_cuml_Msun'] = self.calc_cuml_midpt(v['Mgas_Msun'])
+        v['YX_cuml_Msun_keV'] = self.calc_cuml_midpt( v['Mgas_Msun']*v['T_keV'] )
 
         # total mass (computed from g)
         v['Mtot_cuml_Msun'] = v['g_cmps2']*self.out_centre_cm**2/G_cgs/solar_mass_g
@@ -242,10 +263,10 @@ class Phys:
         for band, ratecalcNH, ratecalcNH0 in self.ratecalcs:
             rate = ratecalcNH.get(T_keV, Z_solar, norm_pkpc3) * (1/kpc3_cm3)
             rate_proj = self.out_projmatrix.dot(rate)
-            v['rate_proj_%g_%g_ps' % band] = calc_cuml_midpt(rate_proj)
+            v['rate_proj_%g_%g_ps' % band] = self.calc_cuml_midpt(rate_proj)
             rate = ratecalcNH0.get(T_keV, Z_solar, norm_pkpc3) * (1/kpc3_cm3)
             rate_proj = self.out_projmatrix.dot(rate)
-            v['rate_NH0_proj_%g_%g_ps' % band] = calc_cuml_midpt(rate_proj)
+            v['rate_NH0_proj_%g_%g_ps' % band] = self.calc_cuml_midpt(rate_proj)
 
         # Mdots
         Lshell_ergps = v['L_bolo_ergpspcm3'] * self.out_vol_cm3
