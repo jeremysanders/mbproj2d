@@ -139,8 +139,12 @@ def PSFLoad(filename, hdu):
     psforig = (hdu.header['CRPIX2']-1, hdu.header['CRPIX1']-1)
 
     # pixel size in arcsec
-    assert hdu.header['CUNIT1'] == 'arcsec'
-    psfpixsize_as = abs(hdu.header['CDELT1'])
-    psf = data.PSF(psfimg, psfpixsize_as, origin=psforig)
+    scale =  {
+        'arcsec': 1,
+        'arcmin': 60,
+        'deg': 3600,
+    }[hdu.header['CUNIT1']]
+    psfpixsize_as = abs(hdu.header['CDELT1']) * scale
 
+    psf = data.PSF(psfimg, psfpixsize_as, origin=psforig)
     return psf
