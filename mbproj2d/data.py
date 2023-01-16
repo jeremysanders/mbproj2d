@@ -62,6 +62,7 @@ class Image:
         self.pixsize_as = pixsize_as
         self.invpixsize = 1/pixsize_as
         self.wcs = wcs
+        self.orig_shape = imagearr.shape
 
         if optimal_size:
             imagearr, expmaps, mask = self._expandOptimal(
