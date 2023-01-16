@@ -26,6 +26,24 @@ class PointBase(SrcModelBase):
         SrcModelBase.__init__(self, name, pars, images, cx=cx, cy=cy)
         self.NH_1022pcm2 = NH_1022pcm2
 
+def addPointToImage(imgarr, cy, cx, rate):
+    """Add point to image array, splitting across pixels as appropriate."""
+
+    cxi = int(cx)
+    cyi = int(cy)
+    yfrac = cy-cyi
+    xfrac = cx-cxi
+    yw, xw = imgarr.shape
+
+    if 0<=cyi<yw and 0<=cxi<xw:
+        imgarr[cyi, cxi] += rate*(1-yfrac)*(1-xfrac)
+    if 0<=cyi+1<yw and 0<=cxi<xw:
+        imgarr[cyi+1, cxi] += rate*yfrac*(1-xfrac)
+    if 0<=cyi<yw and 0<=cxi+1<xw:
+        imgarr[cyi, cxi+1] += rate*(1-yfrac)*xfrac
+    if 0<=cyi+1<yw and 0<=cxi+1<xw:
+        imgarr[cyi+1, cxi+1] += rate*yfrac*xfrac
+
 class PointPowerlaw(PointBase):
     """Powerlaw model at a particular position.
 
@@ -59,17 +77,4 @@ class PointPowerlaw(PointBase):
             # this makes the fitting more robust if a source doesn't jump between pixels
             cy = cy_as*img.invpixsize + img.origin[0]
             cx = cx_as*img.invpixsize + img.origin[1]
-            cxi = int(cx)
-            cyi = int(cy)
-            yfrac = cy-cyi
-            xfrac = cx-cxi
-            yw, xw = imgarr.shape
-
-            if 0<=cyi<yw and 0<=cxi<xw:
-                imgarr[cyi, cxi] += rate*(1-yfrac)*(1-xfrac)
-            if 0<=cyi+1<yw and 0<=cxi<xw:
-                imgarr[cyi+1, cxi] += rate*yfrac*(1-xfrac)
-            if 0<=cyi<yw and 0<=cxi+1<xw:
-                imgarr[cyi, cxi+1] += rate*(1-yfrac)*xfrac
-            if 0<=cyi+1<yw and 0<=cxi+1<xw:
-                imgarr[cyi+1, cxi+1] += rate*yfrac*xfrac
+            addPointToImage(imgarr, cy, cx, rate)
