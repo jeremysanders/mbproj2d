@@ -23,6 +23,7 @@ using std::printf;
 using std::sqrt;
 using std::floor;
 using std::ceil;
+using std::round;
 using std::min;
 using std::max;
 using std::log;
@@ -205,49 +206,66 @@ double logLikelihoodMasked(int nelem, const float* data, const float* model, con
   return sum1 + sum2;
 }
 
-// resample a PSF image between two different image resolutions
 void resamplePSF(int psf_nx, int psf_ny,
-                 float psf_pixsize,
-                 float psf_ox, float psf_oy,
+                 double psf_pixsize,
+                 double psf_ox, double psf_oy,
                  const float *psf,
-                 int oversample,
                  int img_nx, int img_ny,
-                 float img_pixsize,
+                 double img_pixsize,
                  float *img)
 {
-  oversample = max(oversample, 1);
-  const float inv_over = 1.0f/oversample;
-  const float pix_ratio = img_pixsize / psf_pixsize;
+  const double scale_oi = img_pixsize / psf_pixsize;
 
-  double img_tot = 0;
+  // here pixels go from -0.5->0.5
+  double norm = 0;
   for(int y=0; y<img_ny; ++y)
     for(int x=0; x<img_nx; ++x)
       {
-        // want to put PSF at corners of output image
-        const int wrapy = y<img_ny/2 ? y : y-img_ny;
+        // make symmetric about zero
         const int wrapx = x<img_nx/2 ? x : x-img_nx;
+        const int wrapy = y<img_ny/2 ? y : y-img_ny;
 
-        float tot = 0;
-        int num = 0;
-        for(int sy=0; sy<oversample; ++sy)
-          for(int sx=0; sx<oversample; ++sx)
-            {
-              const int psfy = int(floor((wrapy+sy*inv_over)*pix_ratio + psf_oy));
-              const int psfx = int(floor((wrapx+sx*inv_over)*pix_ratio + psf_ox));
-              if(psfy >=0 && psfy < psf_ny && psfx >= 0 && psfx < psf_nx)
-                {
-                  tot += psf[ psfy*psf_nx + psfx ];
-                  ++num;
-                }
-            }
-        img[ y*img_nx + x ] = num>0 ? tot/num : 0;
-        img_tot += img[ y*img_nx + x ];
+        // output rectangle
+        const double lxo = wrapx-0.5, uxo = wrapx+0.5, lyo = wrapy-0.5, uyo = wrapy+0.5;
+
+        //printf("Output: (%g,%g) (%g,%g)\n", lxo, lyo, uxo, uyo);
+
+        // calculate input rectangle
+        const double lxi = lxo*scale_oi + psf_ox;
+        const double uxi = uxo*scale_oi + psf_ox;
+        const double lyi = lyo*scale_oi + psf_oy;
+        const double uyi = uyo*scale_oi + psf_oy;
+
+        // iterate over pixels and fractional pixels in input
+        // ly moves to ny and lx to nx, each time
+        double totpix = 0;
+        for(double ly=lyi; ly<uyi; )
+          {
+            const double ny = min(uyi, floor(ly+1));
+            for(double lx=lxi; lx<uxi; )
+              {
+                const double nx = min(uxi, floor(lx+1));
+                //printf("  Input: (%g,%g) (%g,%g)\n", lx, ly, nx, ny);
+
+                // addup area contribution if within input psf
+                const int ix = int(round(0.5*(nx+lx)));
+                const int iy = int(round(0.5*(ny+ly)));
+                if(ix>=0 && iy>=0 && ix<psf_nx && iy<psf_ny)
+                  {
+                    totpix += (ny-ly)*(nx-lx)*double(psf[iy*psf_nx + ix]);
+                  }
+                lx = nx;
+              }
+            ly = ny;
+          }
+        img[y*img_nx + x] = float(totpix);
+        norm += totpix;
       }
 
   // normalise image
   for(int y=0; y<img_ny; ++y)
     for(int x=0; x<img_nx; ++x)
-      img[ y*img_nx + x ] /= img_tot;
+      img[ y*img_nx + x ] /= norm;
 }
 
 void clipMin(float minval, int ny, int nx, float* arr)

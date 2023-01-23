@@ -34,12 +34,11 @@ cdef extern from "project_cc.hh":
     double logLikelihood(const int nelem, const float* data, const float* model)
     float logLikelihoodMasked(const int nelem, const float* data, const float* model, const int* mask)
     void resamplePSF(int psf_nx, int psf_ny,
-                     float psf_pixsize,
-                     float psf_ox, float psf_oy,
+                     double psf_pixsize,
+                     double psf_ox, double psf_oy,
                      const float *psf,
-                     int oversample,
                      int img_nx, int img_ny,
-                     float img_pixsize,
+                     double img_pixsize,
                      float *img)
     void clipMin(float minval, int ny, int nx, float* arr)
     void clipMax(float maxval, int ny, int nx, float* arr)
@@ -135,17 +134,15 @@ def calcPoissonLogLikelihoodMasked(float[:,::1] data, float[:,::1] model, int[:,
 @cython.wraparound(False)
 def resamplePSFImage(float[:,::1] psfimg,
                      float[:,::1] outimg,
-                     float psf_pixsize=1,
-                     float img_pixsize=1,
-                     float psf_ox=0,
-                     float psf_oy=0,
-                     int oversample=16):
+                     double psf_pixsize=1,
+                     double img_pixsize=1,
+                     double psf_ox=0,
+                     double psf_oy=0):
 
     resamplePSF(psfimg.shape[1], psfimg.shape[0],
                 psf_pixsize,
                 psf_ox, psf_oy,
                 &psfimg[0,0],
-                oversample,
                 outimg.shape[1], outimg.shape[0],
                 img_pixsize,
                 &outimg[0,0])
