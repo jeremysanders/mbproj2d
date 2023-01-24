@@ -213,8 +213,8 @@ class Image:
             hdr = self.wcs.to_header()
             hdr['CDELT1'] = hdr['CDELT1'] * factor
             hdr['CDELT2'] = hdr['CDELT2'] * factor
-            hdr['CRPIX1'] = (hdr['CRPIX1']-1)/factor + 1
-            hdr['CRPIX2'] = (hdr['CRPIX2']-1)/factor + 1
+            hdr['CRPIX1'] = (hdr['CRPIX1']-0.5)/factor + 0.5
+            hdr['CRPIX2'] = (hdr['CRPIX2']-0.5)/factor + 0.5
             newwcs = WCS(hdr)
 
         return Image(
