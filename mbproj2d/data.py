@@ -190,7 +190,10 @@ class Image:
         :param factor: integer bin factor
         """
 
-        neworigin = (self.origin[0]/factor, self.origin[1]/factor)
+        neworigin = (
+            (self.origin[0]+0.5)/factor - 0.5,
+            (self.origin[1]+0.5)/factor - 0.5,
+        )
 
         # bin up cts
         newimg = utils.binImage(self.imagearr, factor)
