@@ -113,12 +113,17 @@ class MCMC:
 
         # create enough parameters with finite likelihoods
         p0 = []
+        ct = 0
         while len(p0) < self.nwalkers:
+            if ct / 1000 > self.nwalkers:
+                # avoid running for ever in case of a likelihood issue
+                raise RuntimeError("Could not create enough parameters with a finite likelihood")
             p = N.random.normal(0, self.initspread, size=self.numpars) + thawedpars
             newpars.setFree(p)
             like = Likelihood(self.fit.images, self.fit.model, newpars).total
             if N.isfinite(like):
                 p0.append(p)
+            ct += 1
 
         return p0
 
