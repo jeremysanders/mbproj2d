@@ -20,7 +20,7 @@ import numpy as N
 from .model import SrcModelBase
 from .ratecalc import ApecRateCalc
 from .profile import Radii
-from .fast import addSBToImgE
+from .fast import addSBToImg_Comb
 from .par import Par
 from . import utils
 from .physconstants import kpc_cm, kpc3_cm3, mu_e, mu_g, G_cgs, P_keV_to_erg
@@ -68,13 +68,13 @@ class ClusterBase(SrcModelBase):
         cy_as = pars[f'{self.name}_cy'].v
         cx_as = pars[f'{self.name}_cx'].v
 
-        # optional ellipticity
-        try:
-            e = pars[f'{self.name}_e'].v
-            theta = pars[f'{self.name}_theta'].v
-        except KeyError:
-            e = 1
-            theta = 0
+        # optional parameters for ellipticity, sloshing amplitude and angle (for both)
+        name = f'{self.name}_e'
+        e = 1 if name not in pars else pars[name].v
+        name = f'{self.name}_ampl'
+        ampl = 0 if name not in pars else pars[name].v
+        name = f'{self.name}_theta'
+        theta = 0 if name not in pars else pars[name].v
 
         # get plasma profiles for each pixel size
         norm_arr = {}
@@ -103,7 +103,7 @@ class ClusterBase(SrcModelBase):
             pix_cx = cx_as*img.invpixsize + img.origin[1]
 
             # add SB profile to image
-            addSBToImgE(1, sb_arr, pix_cx, pix_cy, e, theta, imgarr)
+            addSBToImg_Comb(1, sb_arr, pix_cx, pix_cy, e, ampl, theta, imgarr)
 
     def computeProfiles(self, pars, radii):
         """Compute plasma profiles for use in physical profile computation

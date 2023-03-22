@@ -31,6 +31,12 @@ void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
 		   const int xw, const int yw,
 		   float* img);
 
+void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
+                       const float xc, const float yc,
+                       const float ampl, const float theta0,
+                       const int xw, const int yw,
+                       float *img);
+
 double logLikelihood(const int nelem, const float* data, const float* model);
 double logLikelihoodMasked(int nelem, const float* data, const float* model,
                            const int* mask);

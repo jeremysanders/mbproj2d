@@ -29,6 +29,7 @@ using std::max;
 using std::log;
 using std::sin;
 using std::cos;
+using std::atan2;
 
 template<class T> inline T sqr(T a)
 {
@@ -77,18 +78,18 @@ void project(const float rbin, const int numbins,
       float rf0 = yf0;
       float tot = 0;
       for(int ri=yi; ri<numbins; ++ri)
-	{
+        {
           const float rf1 = rf0 + 1;
 
           const float p1 = (ri   <= yi+1) ? 0 : sqrt_delta_sqr(rf0, yf1);
           const float p2 = (ri   <= yi  ) ? 0 : sqrt_delta_sqr(rf0, yf0);
           const float p3 = (ri+1 <= yi+1) ? 0 : sqrt_delta_sqr(rf1, yf1);
           const float p4 = (ri+1 <= yi  ) ? 0 : sqrt_delta_sqr(rf1, yf0);
-	  const float vol = delta_cube(p1, p2) + delta_cube(p4, p3);
+          const float vol = delta_cube(p1, p2) + delta_cube(p4, p3);
 
-	  tot += vol * emiss[ri];
+          tot += vol * emiss[ri];
           rf0 = rf1;
-	}
+        }
       sb[yi] = volfactor * tot;
 
       yf0 = yf1;
@@ -97,9 +98,9 @@ void project(const float rbin, const int numbins,
 
 // paint surface brightness to image
 void add_sb_prof(const float rbin, const int nbins, const float *sb,
-		 const float xc, const float yc,
-		 const int xw, const int yw,
-		 float *img)
+                 const float xc, const float yc,
+                 const int xw, const int yw,
+                 float *img)
 {
   // copy to ensure outer bin is 0
   std::vector<float> cpy_sb(sb, sb+nbins);
@@ -115,25 +116,25 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
   for(int y=y1; y<=y2; ++y)
     for(int x=x1; x<=x2; ++x)
       {
-	const float r = sqrt(sqr(x-xc) + sqr(y-yc)) * invrbin;
+        const float r = sqrt(sqr(x-xc) + sqr(y-yc)) * invrbin;
 
-	const int i0 = min(int(r), nbins);
-	const int i1 = min(i0+1, nbins);
-	const float w1 = r-int(r);
-	const float w0 = 1-w1;
+        const int i0 = min(int(r), nbins);
+        const int i1 = min(i0+1, nbins);
+        const float w1 = r-int(r);
+        const float w0 = 1-w1;
 
-	const float val = cpy_sb[i0]*w0 + cpy_sb[i1]*w1;
+        const float val = cpy_sb[i0]*w0 + cpy_sb[i1]*w1;
 
-	img[y*xw+x] += val;
+        img[y*xw+x] += val;
       }
 }
 
 // elliptical version of painting a profile
 void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
-		   const float xc, const float yc,
-		   const float e, const float theta,
-		   const int xw, const int yw,
-		   float *img)
+                   const float xc, const float yc,
+                   const float e, const float theta,
+                   const int xw, const int yw,
+                   float *img)
 {
   // copy to ensure outer bin is 0
   std::vector<float> cpy_sb(sb, sb+nbins);
@@ -154,13 +155,53 @@ void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
   for(int y=y1; y<=y2; ++y)
     for(int x=x1; x<=x2; ++x)
       {
-	const float dx = x-xc;
-	const float dy = y-yc;
-	const float rx = (c*dx - s*dy)*sqe;
-	const float ry = (s*dx + c*dy)*sqinve;
+        const float dx = x-xc;
+        const float dy = y-yc;
+        const float rx = (c*dx - s*dy)*sqe;
+        const float ry = (s*dx + c*dy)*sqinve;
 
-	const float r = sqrt(sqr(rx) + sqr(ry)) * invrbin;
-	const int ri = int(r);
+        const float r = sqrt(sqr(rx) + sqr(ry)) * invrbin;
+        const int ri = int(r);
+
+        const int i0 = min(ri, nbins);
+        const int i1 = min(i0+1, nbins);
+        const float w1 = r-ri;
+        const float w0 = 1-w1;
+
+        const float val = cpy_sb[i0]*w0 + cpy_sb[i1]*w1;
+
+        img[y*xw+x] += val;
+      }
+}
+
+// slosh version of painting a profile
+void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
+                       const float xc, const float yc,
+                       const float ampl, const float theta0,
+                       const int xw, const int yw,
+                       float *img)
+{
+  // copy to ensure outer bin is 0
+  std::vector<float> cpy_sb(sb, sb+nbins);
+  cpy_sb.push_back(0);
+
+  // expand box considered to avoid edge
+  const float maxr = rbin*nbins / (1-ampl);
+  const int x1 = max(int(xc-maxr), 0);
+  const int x2 = min(int(xc+maxr), xw-1);
+  const int y1 = max(int(yc-maxr), 0);
+  const int y2 = min(int(yc+maxr), yw-1);
+
+  for(int y=y1; y<=y2; ++y)
+    for(int x=x1; x<=x2; ++x)
+      {
+        const float dx = x-xc;
+        const float dy = y-yc;
+
+        const float theta = atan2(dy, dx);
+        const float rold = sqrt(sqr(dx)+sqr(dy));
+        const float r = rold * (ampl*cos(theta+theta0) + 1);
+        const int ri = int(r);
 
 	const int i0 = min(ri, nbins);
 	const int i1 = min(i0+1, nbins);

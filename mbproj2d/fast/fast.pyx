@@ -31,6 +31,12 @@ cdef extern from "project_cc.hh":
                        float xc, float yc,
                        float e, float theta,
                        int xw, int yw, float *img)
+    void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
+                           const float xc, const float yc,
+                           const float ampl, const float theta0,
+                           const int xw, const int yw,
+                           float *img)
+
     double logLikelihood(const int nelem, const float* data, const float* model)
     float logLikelihoodMasked(const int nelem, const float* data, const float* model, const int* mask)
     void resamplePSF(int psf_nx, int psf_ny,
@@ -65,42 +71,51 @@ def projectEmissivity(float rbin, np.ndarray emiss):
 
     return sb
 
-# "Paint" surface brightness profile onto image
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def addSBToImg(float rbin, float[::1] sb, float xc, float yc,
                float[:,::1] img):
+    """Paint symmetric profile onto image."""
 
     cdef int numbins, xw, yw
-
     numbins = sb.shape[0]
     yw = img.shape[0]
     xw = img.shape[1]
 
     add_sb_prof(rbin, numbins, &sb[0], xc, yc, xw, yw, &img[0,0])
 
-# "Paint" elliptical surface brightness profile onto image
 @cython.boundscheck(False)
 @cython.wraparound(False)
-def addSBToImgE(float rbin, float[::1] sb, float xc, float yc,
-                float e, float theta,
-                float[:,::1] img):
+def addSBToImg_Comb(float rbin, float[::1] sb, float xc, float yc,
+                    float e, float ampl, float theta,
+                    float[:,::1] img):
+    """Paint normal, elliptical or sloshing surface brightness profile onto image.
+
+    e==1, ampl==0: normal
+    ampl==0, e!=1: elliptical
+    ampl!=0, e==1: sloshing
+    others: error
+    """
 
     cdef int numbins, xw, yw
-
     numbins = sb.shape[0]
     yw = img.shape[0]
     xw = img.shape[1]
 
-    if e == 1:
+    if e == 1 and ampl == 0:
         # circular (faster)
-        add_sb_prof(rbin, numbins, &sb[0], xc, yc, xw, yw, &img[0,0])
-    else:
+        add_sb_prof(
+            rbin, numbins, &sb[0], xc, yc, xw, yw, &img[0,0])
+    elif ampl == 0:
         # elliptical
         add_sb_prof_e(
-            rbin, numbins, &sb[0], xc, yc, e, theta, xw, yw,
-            &img[0,0]
-        )
+            rbin, numbins, &sb[0], xc, yc, e, theta, xw, yw, &img[0,0])
+    elif e == 1:
+        # sloshing
+        add_sb_prof_slosh(
+            rbin, numbins, &sb[0], xc, yc, ampl, theta, xw, yw, &img[0,0])
+    else:
+        raise RuntimeError("Cannot have both ellipticity and sloshing")
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
