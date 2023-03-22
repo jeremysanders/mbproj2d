@@ -6,8 +6,10 @@
 # We make a big cube to calculate the counts per unit volume, then
 # integrate along a line of sight to compute a surface brightness map
 
+import os
 import sys
 sys.path.append('../')
+
 import mbproj2d as mb
 
 import math
@@ -51,6 +53,14 @@ pix_kpc = pixsize_as * as_kpc
 rmf = 'onaxis_020_RMF_00001.fits'
 arf = 'onaxis_020_ARF_00001.fits'
 
+pars_fname = '3d_model_pars.pickle'
+chain_fname = '3d_model_chain.hdf5'
+sb_fname = '3d_model_sb.hdf5'
+phys_fname = '3d_model_phys.hdf5'
+
+fake_fname = '3d_model_fake.fits'
+mod_fname = '3d_model_model.fits'
+
 def getNorm(r_kpc):
     """For a cube in the 2D grid, calculate a norm."""
     ne = ne0 * (1 + (r_kpc * (1/rc_kpc))**2) ** (-3*beta/2)
@@ -63,6 +73,9 @@ def getNorm(r_kpc):
 
 def getModelImages():
     print('Making input models')
+    if os.path.exists(mod_fname):
+        print("Already exists")
+        return
 
     # number of pixels and centre
     npix = int(maxrad_kpc / pix_kpc)*2
@@ -89,13 +102,16 @@ def getModelImages():
 
     # write some model images
     ff = fits.HDUList([fits.PrimaryHDU(N.array(images))])
-    ff.writeto('3d_model_models.fits', overwrite=True)
+    ff.writeto(mod_fname, overwrite=True)
 
-    return images
-
-def fakeImages(modimgs):
-
+def fakeImages():
     print('Making input images')
+    if os.path.exists(fake_fname):
+        print("Already exists")
+        return
+
+    with fits.open(mod_fname) as fin:
+        modimgs = fin[0].data + 0
 
     # fixed random number generator
     rs = N.random.RandomState(42)
@@ -108,12 +124,14 @@ def fakeImages(modimgs):
         fakeimgs.append(fake)
 
     ff = fits.HDUList([fits.PrimaryHDU(N.array(fakeimgs).astype(N.int16))])
-    ff.writeto('3d_model_fakes.fits', overwrite=True)
+    ff.writeto(fake_fname, overwrite=True)
 
-    return fakeimgs
-
-def runAnalysis(imgarrs):
+def runAnalysis():
     print('Running analysis')
+
+    with fits.open(fake_fname) as fin:
+        imgarrs = fin[0].data + 0
+
     images = []
     for band, arr in zip(bands, imgarrs):
         # flat exposure map
@@ -149,17 +167,7 @@ def runAnalysis(imgarrs):
         Z_prof=Z_prof,
         cx=pixsize_as*imgarrs[0].shape[1]/2*1.05,
         cy=pixsize_as*imgarrs[0].shape[0]/2/1.05,
-        )
-
-    # xspec = mb.XSpecHelper()
-    # for band, img in zip(bands, images):
-    #     xspec.changeResponse(
-    #         'onaxis_020_RMF_00001.fits', 'onaxis_020_ARF_00001.fits',
-    #         band[0], band[1])
-    #     print(xspec.getCountsPerSec(NH_1022pcm2, 5, 0.3, cosmo, 1.0))
-    #     print(cluster.image_RateCalc[img].getRate(5., 0.3, 1.0))
-
-    # return
+    )
 
     backmod = mb.BackModelFlat(
         'back',
@@ -184,24 +192,50 @@ def runAnalysis(imgarrs):
 
     pars.write()
 
-
     fit = mb.Fit(images, totmod, pars)
-    fit.run()
+
+    if os.path.exists(pars_fname):
+        print('loading', pars_fname)
+        pars.load(pars_fname)
+    else:
+        # find best fitting parameters
+        pars.write()
+        fit.run(maxloops=1)
+        pars.write()
+        fit.run()
+        # save parameters
+        pars.save(pars_fname)
     pars.write()
 
-    fit.save('3d_model.fit')
+    if not os.path.exists(chain_fname):
+        print('Running MCMC')
+        mcmc = mb.MCMC(fit, processes=4)
+        mcmc.burnIn(2000)
+        mcmc.run(2000)
+        mcmc.save(chain_fname)
 
-    mcmc = mb.MCMC(fit, processes=4)
+    if not os.path.exists(sb_fname):
+        print('Calculating SB')
+        sbmaps = mb.SBMaps(
+            pars, totmod, images,
+            prof_origin=(pars['cluster_cy'].v, pars['cluster_cx'].v),
+            make_cvtmaps=False,
+        )
+        output = sbmaps.calcStats(
+            mb.loadChainFromFile(chain_fname, pars, randsamples=1000),
+            h5fname=sb_fname,
+        )
 
-    mcmc.burnIn(2000)
-    mcmc.run(2000)
-    mcmc.save('3d_model_chain.hdf5')
+    if not os.path.exists(phys_fname):
+        print('Calculating physics')
+        phys = mb.Phys(pars, cluster, rate_rmf=rmf, rate_arf=arf, rate_bands=bands, rmax_kpc=3000, rsteps=1024)
+        phys.chainFileToStatsFile(
+            chain_fname, phys_fname, burn=0, randsamples=1000)
 
 def main():
-    modimgs = getModelImages()
-    fakes = fakeImages(modimgs)
-
-    runAnalysis(fakes)
+    getModelImages()
+    fakeImages()
+    runAnalysis()
 
 if __name__ == '__main__':
     main()
