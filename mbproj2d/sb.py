@@ -24,11 +24,14 @@ from .utils import uprint
 from . import utils
 
 class SBMaps:
-    """Construct a set of maps, showing the range and residuals.
+    """Construct a set of maps and/or profiles showing the data, model and residuals.
 
-    Adaptive binning using Centroidal Voronoi Tessellations (CVT),
-    following Cappellari & Copin (2003) is applied for calculating
-    residuals.
+    For the maps, adaptive binning using Centroidal Voronoi
+    Tessellations (CVT), following Cappellari & Copin (2003) is
+    applied for calculating residuals.
+
+    Profiles are given counts per square arcsec, unless the
+    exp_correct parameter is given, which also divides by exposure.
 
     :param pars: Pars() object with parameters
     :param model: TotalModel object
@@ -37,6 +40,8 @@ class SBMaps:
     :param prof_origin: Either profile origins in arcsec (cy,cx), relative to image origin, or a SkyCoord
     :param make_profiles: Whether to make profiles
     :param make_cvtmaps: Whether to make CVT maps
+    :param exp_correct: Divide counts by exposuremap with name given (e.g. "expmap") to make rate profiles/maps
+
     """
 
     def __init__(
@@ -46,6 +51,7 @@ class SBMaps:
             prof_origin=(0,0),
             make_profiles=True,
             make_cvtmaps=True,
+            exp_correct=None,
     ):
 
         self.verbose = verbose
@@ -64,6 +70,7 @@ class SBMaps:
 
         self.pars = pars
         self.model = model
+        self.exp_correct = exp_correct
 
     def _makeBinmaps(self, bincts):
         """Construct CVT binmaps maps for images"""
@@ -186,18 +193,25 @@ class SBMaps:
             # bin total using CVT binmap
             if self.cvt_binmaps is not None:
                 for i in range(len(self.images)):
+                    weights = modarrs['total'][i]
+                    if self.exp_correct is not None:
+                        weights = weights / self.images[i].expmaps[self.exp_correct]
+
                     modbin = N.bincount(
-                        N.ravel(self.cvt_binmaps[i]), weights=N.ravel(modarrs['total'][i]))
+                        N.ravel(self.cvt_binmaps[i]), weights=N.ravel(weights))
                     modbins_cvt[i].append(modbin)
 
             # do profiles for each component
             if self.prof_binmaps is not None:
                 for cmptname in modarrs:
                     for i in range(len(self.images)):
+                        weights = modarrs[cmptname][i]
+                        if self.exp_correct is not None:
+                            weights = weights / self.images[i].expmaps[self.exp_correct]
 
                         modbin = N.bincount(
                             N.ravel(self.prof_binmaps[i]),
-                            weights=N.ravel(modarrs[cmptname][i]))
+                            weights=N.ravel(weights))
 
                         if cmptname not in modbins_profs_cmpts:
                             modbins_profs_cmpts[cmptname] = [[] for _ in range(len(self.images))]
@@ -276,9 +290,10 @@ class SBMaps:
                 -(N.sqrt(cts-0.25)/area)[1:],
             ))
 
-        for image, radii in zip(self.images, self.prof_binradii):
+        for image, radii, area in zip(self.images, self.prof_binradii, areas):
             out['%s_prof_r' % image.img_id] = N.column_stack((
                 radii[:,0], radii[:,1])) * image.pixsize_as
+            out['%s_prof_area' % image.img_id] = area[1:]
 
     def calcStats(self, chain, model_images=True, confint=68.269, h5fname=None):
         """Replay chain and calculate surface brightness statistics.
