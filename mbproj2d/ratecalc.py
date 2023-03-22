@@ -71,7 +71,7 @@ class ApecRateCalc:
             repr(self.Tlogvals.tolist()),
         ])
 
-        # for cacheing results
+        # for caching results
         with utils.CacheOnKey(self.key) as cache:
             if cache.exists():
                 ZTrates = cache.read()
