@@ -116,7 +116,10 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
   for(int y=y1; y<=y2; ++y)
     for(int x=x1; x<=x2; ++x)
       {
-        const float r = sqrt(sqr(x-xc) + sqr(y-yc)) * invrbin;
+        // We want to interpolate from the centre of the pixel bins,
+        // so we shift the radius inwards by 0.5 to achieve this.
+        // This is necessary to achieve agreement between Phys and model
+        const float r = max(sqrt(sqr(x-xc) + sqr(y-yc)) * invrbin - 0.5f, 0.f);
 
         const int i0 = min(int(r), nbins);
         const int i1 = min(i0+1, nbins);
@@ -160,7 +163,8 @@ void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
         const float rx = (c*dx - s*dy)*sqe;
         const float ry = (s*dx + c*dy)*sqinve;
 
-        const float r = sqrt(sqr(rx) + sqr(ry)) * invrbin;
+        // interpolate from centre of pixel bins
+        const float r = max(sqrt(sqr(rx) + sqr(ry)) * invrbin - 0.5f, 0.f);
         const int ri = int(r);
 
         const int i0 = min(ri, nbins);
@@ -200,7 +204,8 @@ void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
 
         const float theta = atan2(dy, dx);
         const float rold = sqrt(sqr(dx)+sqr(dy));
-        const float r = rold * (ampl*cos(theta+theta0) + 1);
+        // interpolate from bin centres by shifting r by -0.5
+        const float r = max(rold * (ampl*cos(theta+theta0) + 1) - 0.5f, 0.f);
         const int ri = int(r);
 
 	const int i0 = min(ri, nbins);
