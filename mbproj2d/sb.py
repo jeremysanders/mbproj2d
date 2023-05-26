@@ -18,6 +18,7 @@ import numpy as N
 import h5py
 from astropy.coordinates import SkyCoord
 import astropy.wcs
+from astropy.io import fits
 
 from .fast import accreteBinImage, buildVoronoiMap
 from .utils import uprint
@@ -225,16 +226,24 @@ class SBMaps:
 
         return modbins_cvt, modbins_profs_cmpts, modimgs
 
-    def _getModImgStats(self, modimgs, percs, out):
+    def _outputImage(self, out_images, image, name, vals):
+        outhdr = None
+        if image.wcs is not None:
+            outhdr = image.wcs.to_header()
+        hdu = fits.ImageHDU(vals, header=outhdr)
+        k = f'{image.img_id}_{name}'
+        hdu.header['EXTNAME'] = k
+        out_images[k] = hdu
+
+    def _getModImgStats(self, modimgs, percs, out_images):
         # get statistics for model images
         for modimg, image in zip(modimgs, self.images):
             perc = N.percentile(modimg, percs, overwrite_input=True, axis=0)
+            self._outputImage(out_images, image, 'model_med', perc[0])
+            self._outputImage(out_images, image, 'model_lo', perc[1])
+            self._outputImage(out_images, image, 'model_hi', perc[2])
 
-            out['%s_model_med' % image.img_id] = perc[0]
-            out['%s_model_lo' % image.img_id] = perc[1]
-            out['%s_model_hi' % image.img_id] = perc[2]
-
-    def _getCVTStats(self, modbins_cvt, percs, out):
+    def _getCVTStats(self, modbins_cvt, percs, out_images):
         # get statistics for CVT images
         # this means painting values back onto binmap
         for modvals, image, binmap in zip(modbins_cvt, self.images, self.cvt_binmaps):
@@ -253,19 +262,41 @@ class SBMaps:
             ctsimg = sb[binmap]
 
             # write counts
-            out['%s_CVT_data' % image.img_id] = ctsimg
-
-            # write models
-            out['%s_CVT_model_med' % image.img_id] = modimg_med
-            out['%s_CVT_model_lo' % image.img_id] = modimg_lo
-            out['%s_CVT_model_hi' % image.img_id] = modimg_hi
-
+            self._outputImage(out_images, image, 'CVT_data', ctsimg)
+            # write residuals
+            self._outputImage(out_images, image, 'CVT_model_med', modimg_med)
+            self._outputImage(out_images, image, 'CVT_model_lo', modimg_lo)
+            self._outputImage(out_images, image, 'CVT_model_hi', modimg_hi)
             # write fractional residuals
-            out['%s_CVT_model_resid_med' % image.img_id] = ctsimg / modimg_med - 1
-            out['%s_CVT_model_resid_lo' % image.img_id] = ctsimg / modimg_lo - 1
-            out['%s_CVT_model_resid_hi' % image.img_id] = ctsimg / modimg_hi - 1
+            self._outputImage(out_images, image, 'CVT_model_resid_med', ctsimg/modimg_med - 1)
+            self._outputImage(out_images, image, 'CVT_model_resid_lo', ctsimg/modimg_lo - 1)
+            self._outputImage(out_images, image, 'CVT_model_resid_hi', ctsimg/modimg_hi - 1)
 
-    def _getProfStats(self, modbins_profs_cmpts, percs, out):
+    def _getProfStats(self, modbins_profs_cmpts, percs, cols_hdf5, cols_fits):
+
+        # routines for setting 3, 2 and 1 column entries in the output
+        def setfits(img, name, val):
+            tab = f'prof_{img.img_id}'
+            if tab not in cols_fits:
+                cols_fits[tab] = {}
+            cols_fits[tab][name] = val
+        def sethdf5(img, name, val):
+            cols_hdf5[f'{img.img_id}_prof_{name}'] = val
+
+        def set3(img, name, val, perr, nerr):
+            setfits(img, name, val)
+            setfits(img, name+'_perr', perr)
+            setfits(img, name+'_nerr', nerr)
+            sethdf5(img, name, N.column_stack((val, perr, nerr)))
+
+        def set2(img, name, val, serr):
+            setfits(img, name, val)
+            setfits(img, name+'_serr', serr)
+            sethdf5(img, name, N.column_stack((val, serr)))
+
+        def set1(img, name, val):
+            setfits(img, name, val)
+            sethdf5(img, name, val)
 
         # number of pixels in each annulus
         areas = []
@@ -274,34 +305,33 @@ class SBMaps:
 
         # now get profiles for each component
         for cmpt in modbins_profs_cmpts:
-
             cmpt_vals = modbins_profs_cmpts[cmpt]
             for image, profs, area in zip(self.images, cmpt_vals, areas):
                 perc = N.percentile(profs, percs, axis=0)
                 perc /= area[N.newaxis,:]
-                out['%s_prof_%s' % (image.img_id, cmpt)] = N.column_stack((
-                    perc[0][1:], perc[2][1:]-perc[0][1:], perc[1][1:]-perc[0][1:]))
+                val, perr, nerr = perc[0][1:], perc[2][1:]-perc[0][1:], perc[1][1:]-perc[0][1:]
+                set3(image, cmpt, val, perr, nerr)
 
         for image, binmap, area in zip(self.images, self.prof_binmaps, areas):
             cts = N.bincount(N.ravel(binmap), weights=N.ravel(image.imagearr))
-            out['%s_prof_data' % image.img_id] = N.column_stack((
-                (cts / area)[1:],
-                ((1.0 + N.sqrt(cts+0.75))/area)[1:],
-                -(N.sqrt(cts-0.25)/area)[1:],
-            ))
+            val = (cts / area)[1:]
+            perr = ((1.0 + N.sqrt(cts+0.75))/area)[1:]
+            nerr = -(N.sqrt(cts-0.25)/area)[1:]
+            set3(image, 'data', val, perr, nerr)
 
         for image, radii, area in zip(self.images, self.prof_binradii, areas):
-            out['%s_prof_r' % image.img_id] = N.column_stack((
-                radii[:,0], radii[:,1])) * image.pixsize_as
-            out['%s_prof_area' % image.img_id] = area[1:]
+            val, serr = radii[:,0]*image.pixsize_as, radii[:,1]*image.pixsize_as
+            set2(image, 'r', val, serr)
+            set1(image, 'area', area[1:])
 
-    def calcStats(self, chain, model_images=True, confint=68.269, h5fname=None):
+    def calcStats(self, chain, model_images=True, confint=68.269, h5fname=None, fitsfname=None):
         """Replay chain and calculate surface brightness statistics.
 
         :param chain: array of chain parameter values
         :param model_images: whether to calculate unbinned model image statistics
         :param confint: confidence interval to use
         :param h5fname: save outputs into hdf5 filename given if set
+        :param fitsfname: save outputs into a fits filename given if set
 
         Returns a dictionary.
 
@@ -343,32 +373,60 @@ class SBMaps:
             uprint('SBMaps:  calculating statistics')
 
         percs = [50, 50-confint/2, 50+confint/2]
-        out = {}
+        cols_hdf5 = {}
+        cols_fits = {}
+        out_images = {}
 
         # optional statistics for models
         if model_images:
-            self._getModImgStats(modimgs, percs, out)
+            self._getModImgStats(modimgs, percs, out_images)
             del modimgs
 
         # CVT output
         if self.cvt_binmaps is not None:
-            self._getCVTStats(modbins_cvt, percs, out)
+            self._getCVTStats(modbins_cvt, percs, out_images)
 
         # profile statistics
         if self.prof_binmaps is not None:
-            self._getProfStats(modbins_profs_cmpts, percs, out)
+            self._getProfStats(modbins_profs_cmpts, percs, cols_hdf5, cols_fits)
 
         # write to hdf5 file
         if h5fname is not None:
             if self.verbose:
                 uprint('SBMaps:  writing to', h5fname)
             with h5py.File(h5fname, 'w') as fout:
-                for name in out:
-                    fout.create_dataset(name, data=out[name], compression='gzip')
-                    if out[name].ndim==2 and out[name].shape[1] in {2,3}:
+                for name in cols_hdf5:
+                    fout.create_dataset(name, data=cols_hdf5[name], compression='gzip')
+                    if cols_hdf5[name].ndim==2 and cols_hdf5[name].shape[1] in {2,3}:
                         fout[name].attrs['vsz_twod_as_oned'] = 1
+                for name in out_images:
+                    fout.create_dataset(name, data=out_images[name].data, compression='gzip')
+
+        # write to fits file
+        if fitsfname is not None:
+            if self.verbose:
+                uprint('SBMaps:  writing to', fitsfname)
+
+            hdus = [fits.PrimaryHDU()]
+            for name in out_images:
+                hdus.append(out_images[name])
+            for name, vals in cols_fits.items():
+                cols = []
+                for cname, cvals in vals.items():
+                    cols.append(fits.Column(name=cname, array=cvals, format='D'))
+                hdu = fits.BinTableHDU.from_columns(cols)
+                hdu.header['EXTNAME'] = name
+                hdus.append(hdu)
+
+            fits.HDUList(hdus).writeto(fitsfname, overwrite=True)
 
         if self.verbose:
             uprint('SBMaps: Done')
 
+        # combine images and columns for python
+        out = {}
+        for name, val in out_images.items():
+            out[name] = val.data
+        for name, val in cols_hdf5.items():
+            out[name] = val
         return out
