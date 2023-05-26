@@ -68,6 +68,12 @@ class TotalModel:
             for model in self.src_models:
                 model.compute(pars, imgarrs)
 
+            # optional scaling of model
+            for imgarr, image in zip(imgarrs, self.images):
+                scale_name = f'src_logscale_{image.img_id}'
+                if scale_name in pars:
+                    imgarr *= math.exp(pars[scale_name].v)
+
             # convolve with PSF
             if apply_psf:
                 for imgarr, image in zip(imgarrs, self.images):
@@ -155,12 +161,18 @@ class TotalModel:
         return total
 
     def writeToFits(self, filename, pars, mask=True, apply_psf=True,
-                    apply_expmap=True, apply_src=True, apply_back=True):
+                    apply_expmap=True, apply_src=True, apply_back=True,
+                    trim_original=False):
         """Write model as a series of HDUs in a FITS file.
 
         :param filename: FITS filename
         :param pars: pars dictionary
         :param mask: mask out masked pixels
+        :param apply_psf: convolve with PSF
+        :param apply_expmap: multiply by exposure map
+        :param apply_src: include source models
+        :param apply_back: include background models
+        :param trim_original: write to original size
         """
 
         hdus = [fits.PrimaryHDU()]
@@ -171,6 +183,9 @@ class TotalModel:
         for image, mod in zip(self.images, modimgs):
             if mask:
                 mod[image.mask==0] = N.nan
+            if trim_original:
+                mod = mod[:image.orig_shape[0],:image.orig_shape[1]]
+
             hdu = fits.ImageHDU(mod)
             hdu.header['EXTNAME'] = image.img_id
             if image.wcs is not None:
