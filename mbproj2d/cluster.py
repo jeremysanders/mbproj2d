@@ -68,11 +68,11 @@ class ClusterBase(SrcModelBase):
         cy_as = pars[f'{self.name}_cy'].v
         cx_as = pars[f'{self.name}_cx'].v
 
-        # optional parameters for ellipticity, sloshing amplitude and angle (for both)
+        # optional parameters for ellipticity, skew amplitude and angle (for both)
         name = f'{self.name}_e'
         e = 1 if name not in pars else pars[name].v
-        name = f'{self.name}_ampl'
-        ampl = 0 if name not in pars else pars[name].v
+        name = f'{self.name}_skew'
+        skew = 0 if name not in pars else pars[name].v
         name = f'{self.name}_theta'
         theta = 0 if name not in pars else pars[name].v
 
@@ -103,7 +103,7 @@ class ClusterBase(SrcModelBase):
             pix_cx = cx_as*img.invpixsize + img.origin[1]
 
             # add SB profile to image
-            addSBToImg_Comb(1, sb_arr, pix_cx, pix_cy, e, ampl, theta, imgarr)
+            addSBToImg_Comb(1, sb_arr, pix_cx, pix_cy, e, skew, theta, imgarr)
 
     def computeProfiles(self, pars, radii):
         """Compute plasma profiles for use in physical profile computation

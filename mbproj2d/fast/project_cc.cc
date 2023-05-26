@@ -178,19 +178,19 @@ void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
       }
 }
 
-// slosh version of painting a profile
-void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
-                       const float xc, const float yc,
-                       const float ampl, const float theta0,
-                       const int xw, const int yw,
-                       float *img)
+// skew version of painting a profile
+void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
+                      const float xc, const float yc,
+                      const float skew, const float theta0,
+                      const int xw, const int yw,
+                      float *img)
 {
   // copy to ensure outer bin is 0
   std::vector<float> cpy_sb(sb, sb+nbins);
   cpy_sb.push_back(0);
 
   // expand box considered to avoid edge
-  const float maxr = rbin*nbins / (1-ampl);
+  const float maxr = rbin*nbins / (1-skew);
   const int x1 = max(int(xc-maxr), 0);
   const int x2 = min(int(xc+maxr), xw-1);
   const int y1 = max(int(yc-maxr), 0);
@@ -205,7 +205,7 @@ void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
         const float theta = atan2(dy, dx);
         const float rold = sqrt(sqr(dx)+sqr(dy));
         // interpolate from bin centres by shifting r by -0.5
-        const float r = max(rold * (ampl*cos(theta+theta0) + 1) - 0.5f, 0.f);
+        const float r = max(rold * (skew*cos(theta+theta0) + 1) - 0.5f, 0.f);
         const int ri = int(r);
 
 	const int i0 = min(ri, nbins);
