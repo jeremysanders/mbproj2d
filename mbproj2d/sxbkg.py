@@ -140,7 +140,7 @@ class BackModelImage(BackModelBase):
             yw, xw = backimgarr.shape
 
             if self.expmap is not None:
-                backimgarr = backimgarr * image.expmaps[self.expmap]
+                backimgarr = backimgarr * image.expmaps[self.expmap][:yw,:xw]
 
             imgarr[:yw,:xw] += (v*scale)*backimgarr
 
