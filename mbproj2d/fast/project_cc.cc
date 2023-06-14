@@ -96,6 +96,24 @@ void project(const float rbin, const int numbins,
     }
 }
 
+namespace {
+  // do linear interpolation of r into sb array
+  inline float linear_interpolate(const float r, const std::vector<float>& sb, const int nbins)
+  {
+    // interpolate from the centre of the pixel bins - shift inwards by 0.5 to do this
+    // this is necessary for consistency on rebinning
+    const float rc = max(r-0.5f, 0.f);
+
+    const int ri = int(rc);
+    const int i0 = min(ri, nbins);
+    const int i1 = min(i0+1, nbins);
+    const float w1 = rc-ri;
+    const float w0 = 1-w1;
+    const float val = sb[i0]*w0 + sb[i1]*w1;
+    return val;
+  }
+}
+
 // paint surface brightness to image
 void add_sb_prof(const float rbin, const int nbins, const float *sb,
                  const float xc, const float yc,
@@ -116,18 +134,8 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
   for(int y=y1; y<=y2; ++y)
     for(int x=x1; x<=x2; ++x)
       {
-        // We want to interpolate from the centre of the pixel bins,
-        // so we shift the radius inwards by 0.5 to achieve this.
-        // This is necessary to achieve agreement between Phys and model
-        const float r = max(sqrt(sqr(x-xc) + sqr(y-yc)) * invrbin - 0.5f, 0.f);
-
-        const int i0 = min(int(r), nbins);
-        const int i1 = min(i0+1, nbins);
-        const float w1 = r-int(r);
-        const float w0 = 1-w1;
-
-        const float val = cpy_sb[i0]*w0 + cpy_sb[i1]*w1;
-
+        const float r = sqrt(sqr(x-xc) + sqr(y-yc)) * invrbin;
+        const float val = linear_interpolate(r, cpy_sb, nbins);
         img[y*xw+x] += val;
       }
 }
@@ -164,19 +172,12 @@ void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
         const float ry = (s*dx + c*dy)*sqinve;
 
         // interpolate from centre of pixel bins
-        const float r = max(sqrt(sqr(rx) + sqr(ry)) * invrbin - 0.5f, 0.f);
-        const int ri = int(r);
-
-        const int i0 = min(ri, nbins);
-        const int i1 = min(i0+1, nbins);
-        const float w1 = r-ri;
-        const float w0 = 1-w1;
-
-        const float val = cpy_sb[i0]*w0 + cpy_sb[i1]*w1;
-
+        const float r = sqrt(sqr(rx) + sqr(ry)) * invrbin;
+        const float val = linear_interpolate(r, cpy_sb, nbins);
         img[y*xw+x] += val;
       }
 }
+
 
 // skew version of painting a profile
 void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
@@ -196,6 +197,17 @@ void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
   const int y1 = max(int(yc-maxr), 0);
   const int y2 = min(int(yc+maxr), yw-1);
 
+  const float invrbin = 1/rbin;
+
+  // make a temporary image
+  const int tyw = y2-y1+1;
+  const int txw = x2-x1+1;
+  std::vector<float> timg(size_t(txw*tyw));
+
+  // messy, as want to preserve flux of total
+  float sumskew = 0;
+  float sumorig = 0;
+
   for(int y=y1; y<=y2; ++y)
     for(int x=x1; x<=x2; ++x)
       {
@@ -203,20 +215,21 @@ void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
         const float dy = y-yc;
 
         const float theta = atan2(dy, dx);
-        const float rold = sqrt(sqr(dx)+sqr(dy));
-        // interpolate from bin centres by shifting r by -0.5
-        const float r = max(rold * (skew*cos(theta+theta0) + 1) - 0.5f, 0.f);
-        const int ri = int(r);
+        const float rold = sqrt(sqr(dx)+sqr(dy)) * invrbin;
+        const float rskew = rold * (skew*cos(theta+theta0) + 1);
+        const float valskew = linear_interpolate(rskew, cpy_sb, nbins);
+        sumskew += valskew;
+        timg[(y-y1)*txw+(x-x1)] = valskew;
 
-	const int i0 = min(ri, nbins);
-	const int i1 = min(i0+1, nbins);
-	const float w1 = r-ri;
-	const float w0 = 1-w1;
-
-	const float val = cpy_sb[i0]*w0 + cpy_sb[i1]*w1;
-
-	img[y*xw+x] += val;
+        const float valorig = linear_interpolate(rold, cpy_sb, nbins);
+        sumorig += valorig;
       }
+
+  // rescale and add to output to preserve brightness
+  const float scale = sumorig/sumskew;
+  for(int y=y1; y<=y2; ++y)
+    for(int x=x1; x<=x2; ++x)
+      img[y*xw+x] += timg[(y-y1)*txw+(x-x1)]*scale;
 }
 
 // calculate a Poisson log likelihood (direct)

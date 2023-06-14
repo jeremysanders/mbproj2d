@@ -317,6 +317,26 @@ class Phys:
             burn=burn, thin=thin, randsamples=randsamples,
         )
 
+    def computePhysPars(self, pars):
+        """Compute physical quanities for an individual set of parameters. Returned as a dict.
+
+        :param pars: Pars() object with parameters to compute physical parameters for.
+        """
+
+        # compute physical quantities on linear grid
+        ne_arr, T_arr, Z_arr = self.model.computeProfiles(pars, self.radii)
+        g_arr, phi_arr = self.model.computeMassProfile(pars, self.radii)
+
+        # resample to output grid
+        ne_resamp = self.rebinfn(ne_arr)
+        T_resamp = self.rebinfn(T_arr)
+        Z_resamp = self.rebinfn(Z_arr)
+        g_resamp = self.rebinfn(g_arr)
+        phi_resamp = self.rebinfn(phi_arr)
+
+        # compute quantities given profiles
+        return self.calc(ne_resamp, T_resamp, Z_resamp, g_resamp, phi_resamp)
+
     def computePhysChains(self, chain):
         """Compute set of chains for each physical quantity.
 
@@ -334,17 +354,7 @@ class Phys:
                 uprint(' Step %i / %i (%.1f%%)' % (i, length, i*100/length))
 
             pars.setFree(parvals)
-
-            ne_arr, T_arr, Z_arr = self.model.computeProfiles(pars, self.radii)
-            g_arr, phi_arr = self.model.computeMassProfile(pars, self.radii)
-
-            ne_resamp = self.rebinfn(ne_arr)
-            T_resamp = self.rebinfn(T_arr)
-            Z_resamp = self.rebinfn(Z_arr)
-            g_resamp = self.rebinfn(g_arr)
-            phi_resamp = self.rebinfn(phi_arr)
-
-            physvals = self.calc(ne_resamp, T_resamp, Z_resamp, g_resamp, phi_resamp)
+            physvals = self.computePhysPars(pars)
             for name, vals in physvals.items():
                 if name not in data:
                     data[name] = []
