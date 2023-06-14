@@ -199,12 +199,15 @@ void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
 
   const float invrbin = 1/rbin;
 
-  // make a temporary image
+  // make a temporary image for normalisation purposes
   const int tyw = y2-y1+1;
   const int txw = x2-x1+1;
   std::vector<float> timg(size_t(txw*tyw));
 
-  // messy, as want to preserve flux of total
+  const float s = sin(theta0);
+  const float c = cos(theta0);
+
+  // messy, as want to preserve flux of total - likely better way to do this
   float sumskew = 0;
   float sumorig = 0;
 
@@ -213,10 +216,14 @@ void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
       {
         const float dx = x-xc;
         const float dy = y-yc;
-
-        const float theta = atan2(dy, dx);
         const float rold = sqrt(sqr(dx)+sqr(dy)) * invrbin;
-        const float rskew = rold * (skew*cos(theta+theta0) + 1);
+
+        // rotate so theta0 is along axis
+        const float rx = dx*c - dy*s;
+
+        // this is equivalent to
+        //  rskew = rold * (skew*cos(atan2(dy,dx)+theta0) + 1)
+        const float rskew = rold + skew*rx*invrbin;
         const float valskew = linear_interpolate(rskew, cpy_sb, nbins);
         sumskew += valskew;
         timg[(y-y1)*txw+(x-x1)] = valskew;
