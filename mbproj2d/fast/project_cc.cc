@@ -30,6 +30,7 @@ using std::log;
 using std::sin;
 using std::cos;
 using std::atan2;
+using std::pow;
 
 template<class T> inline T sqr(T a)
 {
@@ -198,18 +199,27 @@ void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
   const int y2 = min(int(yc+maxr), yw-1);
 
   const float invrbin = 1/rbin;
-
-  // make a temporary image for normalisation purposes
-  const int tyw = y2-y1+1;
-  const int txw = x2-x1+1;
-  std::vector<float> timg(size_t(txw*tyw));
-
   const float s = sin(theta0);
   const float c = cos(theta0);
 
-  // messy, as want to preserve flux of total - likely better way to do this
-  float sumskew = 0;
-  float sumorig = 0;
+  // this is the scaling factor for scaling the flux of the model for a given skew
+  // to compensate for the area scaling
+
+  // Consider a circle that is skewed, and calculate the area relative to a circle
+  // We want to integrate sqrt(x**2+y**2) + skew*x < 1, and divide by this (relative to skew=0)
+
+  // From Mathematica (here s is skew):
+  //   Pi/Integrate[
+  //     Integrate[
+  //      1, {x, (s - Sqrt[1 - y^2 + s^2 y^2])/(-1 + s^2), (
+  //       s + Sqrt[1 - y^2 + s^2 y^2])/(-1 + s^2)}], {y, -(1/Sqrt[1 - s^2]),
+  //       1/Sqrt[1 - s^2]}]
+  // Equals (1-s**2)**(3/2)
+  const float skewscale = pow(1-sqr(skew), 1.5f);
+
+  // now scale sb vector by this, so we don't need to compute for each pixel
+  for(size_t i=0; i != cpy_sb.size(); ++i)
+    cpy_sb[i] *= skewscale;
 
   for(int y=y1; y<=y2; ++y)
     for(int x=x1; x<=x2; ++x)
@@ -225,18 +235,8 @@ void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
         //  rskew = rold * (skew*cos(atan2(dy,dx)+theta0) + 1)
         const float rskew = rold + skew*rx*invrbin;
         const float valskew = linear_interpolate(rskew, cpy_sb, nbins);
-        sumskew += valskew;
-        timg[(y-y1)*txw+(x-x1)] = valskew;
-
-        const float valorig = linear_interpolate(rold, cpy_sb, nbins);
-        sumorig += valorig;
+        img[y*xw+x] += valskew;
       }
-
-  // rescale and add to output to preserve brightness
-  const float scale = sumorig/sumskew;
-  for(int y=y1; y<=y2; ++y)
-    for(int x=x1; x<=x2; ++x)
-      img[y*xw+x] += timg[(y-y1)*txw+(x-x1)]*scale;
 }
 
 // calculate a Poisson log likelihood (direct)
