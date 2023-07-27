@@ -23,7 +23,7 @@ from .profile import Radii
 from .fast import addSBToImg_Comb
 from .par import Par
 from . import utils
-from .physconstants import kpc_cm, kpc3_cm3, mu_e, mu_g, G_cgs, P_keV_to_erg
+from .physconstants import kpc_cm, Mpc_cm, kpc3_cm3, mu_e, mu_g, G_cgs, P_keV_to_erg
 
 class ClusterBase(SrcModelBase):
     """Base cluster model class.
@@ -41,6 +41,7 @@ class ClusterBase(SrcModelBase):
 
         self.cosmo = cosmo
         self.NH_1022pcm2 = NH_1022pcm2
+        self.maxradius_kpc = maxradius_kpc
 
         self.pixsize_Radii = {}  # radii indexed by pixsize
         self.image_RateCalc = {} # RateCalc for each image
@@ -309,3 +310,80 @@ class ClusterHydro(ClusterBase):
             g_prof += computeGasAccn(radii, ne_prof)
 
         return g_prof, pot_prof
+
+class EmissionMeasureCluster(ClusterBase):
+    """Less physical cluster model, where we parameterize using a projected emission measure profile.
+
+    Here T_prof and Z_prof are also projected quantities
+    emiss_prof has units of cm^-5
+    """
+
+    def __init__(self, name, pars, images,
+                 cosmo=None,
+                 NH_1022pcm2=0.,
+                 emiss_prof=None, T_prof=None, Z_prof=None,
+                 maxradius_kpc=3000.,
+                 cx=0., cy=0.):
+
+        ClusterBase.__init__(
+            self, name, pars, images,
+            cosmo=cosmo,
+            NH_1022pcm2=NH_1022pcm2,
+            maxradius_kpc=maxradius_kpc,
+            cx=cx, cy=cy)
+
+        self.emiss_prof = emiss_prof
+        self.T_prof = T_prof
+        self.Z_prof = Z_prof
+
+    def prior(self, pars):
+        return (
+            self.emiss_prof.prior(pars) +
+            self.T_prof.prior(pars) +
+            self.Z_prof.prior(pars)
+        )
+
+    def compute(self, pars, imgarrs):
+        """Compute cluster images.
+
+        This completely overrides the base class."""
+
+        cy_as = pars[f'{self.name}_cy'].v
+        cx_as = pars[f'{self.name}_cx'].v
+
+        # optional parameters for ellipticity, skew amplitude and angle (for both)
+        name = f'{self.name}_e'
+        e = 1 if name not in pars else pars[name].v
+        name = f'{self.name}_skew'
+        skew = 0 if name not in pars else pars[name].v
+        name = f'{self.name}_theta'
+        theta = 0 if name not in pars else pars[name].v
+
+        # get profiles for each pixel size
+        emiss_arr = {}
+        T_arr = {}
+        Z_arr = {}
+        for pixsize, radii in self.pixsize_Radii.items():
+            emiss_arr[pixsize] = self.emiss_prof.compute(pars, radii)
+            T_arr[pixsize] = self.T_prof.compute(pars, radii)
+            Z_arr[pixsize] = self.Z_prof.compute(pars, radii)
+
+        # add profiles to each image
+        for img, imgarr in zip(self.images, imgarrs):
+            pixsize_as = img.pixsize_as
+            pixsize_cm = pixsize_as * self.cosmo.as_kpc * kpc_cm
+
+            em_scale = 1e-14 * pixsize_cm**2 / (
+                4*N.pi * (self.cosmo.D_A*Mpc_cm*(1+self.cosmo.z))**2)
+            norm_ppix2 = emiss_arr[pixsize_as]*em_scale
+
+            sb_arr = self.image_RateCalc[img].get(
+                T_arr[pixsize_as], Z_arr[pixsize_as], norm_ppix2)
+            sb_arr = sb_arr.astype(N.float32)
+
+            # compute centre in pixels
+            pix_cy = cy_as*img.invpixsize + img.origin[0]
+            pix_cx = cx_as*img.invpixsize + img.origin[1]
+
+            # add SB profile to image
+            addSBToImg_Comb(1, sb_arr, pix_cx, pix_cy, e, skew, theta, imgarr)
