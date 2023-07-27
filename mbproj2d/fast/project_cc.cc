@@ -180,10 +180,10 @@ void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
 }
 
 
-// skew version of painting a profile
-void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
+// slosh version of painting a profile
+void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
                       const float xc, const float yc,
-                      const float skew, const float theta0,
+                      const float slosh, const float theta0,
                       const int xw, const int yw,
                       float *img)
 {
@@ -192,7 +192,7 @@ void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
   cpy_sb.push_back(0);
 
   // expand box considered to avoid edge
-  const float maxr = rbin*nbins / (1-skew);
+  const float maxr = rbin*nbins / (1-slosh);
   const int x1 = max(int(xc-maxr), 0);
   const int x2 = min(int(xc+maxr), xw-1);
   const int y1 = max(int(yc-maxr), 0);
@@ -202,24 +202,24 @@ void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
   const float s = sin(theta0);
   const float c = cos(theta0);
 
-  // this is the scaling factor for scaling the flux of the model for a given skew
+  // this is the scaling factor for scaling the flux of the model for a given slosh
   // to compensate for the area scaling
 
-  // Consider a circle that is skewed, and calculate the area relative to a circle
-  // We want to integrate sqrt(x**2+y**2) + skew*x < 1, and divide by this (relative to skew=0)
+  // Consider a circle that is sloshed, and calculate the area relative to a circle
+  // We want to integrate sqrt(x**2+y**2) + slosh*x < 1, and divide by this (relative to slosh=0)
 
-  // From Mathematica (here s is skew):
+  // From Mathematica (here s is slosh):
   //   Pi/Integrate[
   //     Integrate[
   //      1, {x, (s - Sqrt[1 - y^2 + s^2 y^2])/(-1 + s^2), (
   //       s + Sqrt[1 - y^2 + s^2 y^2])/(-1 + s^2)}], {y, -(1/Sqrt[1 - s^2]),
   //       1/Sqrt[1 - s^2]}]
   // Equals (1-s**2)**(3/2)
-  const float skewscale = pow(1-sqr(skew), 1.5f);
+  const float sloshscale = pow(1-sqr(slosh), 1.5f);
 
   // now scale sb vector by this, so we don't need to compute for each pixel
   for(size_t i=0; i != cpy_sb.size(); ++i)
-    cpy_sb[i] *= skewscale;
+    cpy_sb[i] *= sloshscale;
 
   for(int y=y1; y<=y2; ++y)
     for(int x=x1; x<=x2; ++x)
@@ -232,10 +232,10 @@ void add_sb_prof_skew(const float rbin, const int nbins, const float *sb,
         const float rx = dx*c - dy*s;
 
         // this is equivalent to
-        //  rskew = rold * (skew*cos(atan2(dy,dx)+theta0) + 1)
-        const float rskew = rold + skew*rx*invrbin;
-        const float valskew = linear_interpolate(rskew, cpy_sb, nbins);
-        img[y*xw+x] += valskew;
+        //  rslosh = rold * (slosh*cos(atan2(dy,dx)+theta0) + 1)
+        const float rslosh = rold + slosh*rx*invrbin;
+        const float valslosh = linear_interpolate(rslosh, cpy_sb, nbins);
+        img[y*xw+x] += valslosh;
       }
 }
 
