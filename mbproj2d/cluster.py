@@ -69,13 +69,22 @@ class ClusterBase(SrcModelBase):
         cy_as = pars[f'{self.name}_cy'].v
         cx_as = pars[f'{self.name}_cx'].v
 
-        # optional parameters for ellipticity, slosh amplitude and angle (for both)
+        # Optional parameters:
+        #  ellipticity (0..1)
         name = f'{self.name}_e'
         e = 1 if name not in pars else pars[name].v
+        #  slosh amplitude (0..1)
         name = f'{self.name}_slosh'
         slosh = 0 if name not in pars else pars[name].v
+        #  angle of slosh, ellipticity or multipole (radians)
         name = f'{self.name}_theta'
         theta = 0 if name not in pars else pars[name].v
+        #  multipole index (1,2,3,4), or 0 to disable
+        name = f'{self.name}_mulm'
+        mulm = 0 if name not in pars else int(pars[name].v)
+        #  multipole magnitude (0..1)
+        name = f'{self.name}_mulmag'
+        mulmag = 0 if name not in pars else pars[name].v
 
         # get plasma profiles for each pixel size
         norm_arr = {}
@@ -104,7 +113,8 @@ class ClusterBase(SrcModelBase):
             pix_cx = cx_as*img.invpixsize + img.origin[1]
 
             # add SB profile to image
-            addSBToImg_Comb(1, sb_arr, pix_cx, pix_cy, e, slosh, theta, imgarr)
+            addSBToImg_Comb(
+                1, sb_arr, pix_cx, pix_cy, e, slosh, theta, mulm, mulmag, imgarr)
 
     def computeProfiles(self, pars, radii):
         """Compute plasma profiles for use in physical profile computation
@@ -351,13 +361,22 @@ class EmissionMeasureCluster(ClusterBase):
         cy_as = pars[f'{self.name}_cy'].v
         cx_as = pars[f'{self.name}_cx'].v
 
-        # optional parameters for ellipticity, slosh amplitude and angle (for both)
+        # Optional parameters:
+        #  ellipticity (0..1)
         name = f'{self.name}_e'
         e = 1 if name not in pars else pars[name].v
+        #  slosh amplitude (0..1)
         name = f'{self.name}_slosh'
         slosh = 0 if name not in pars else pars[name].v
+        #  angle of slosh, ellipticity or multipole (radians)
         name = f'{self.name}_theta'
         theta = 0 if name not in pars else pars[name].v
+        #  multipole index (1,2,3,4), or 0 to disable
+        name = f'{self.name}_mulm'
+        mulm = 0 if name not in pars else int(pars[name].v)
+        #  multipole magnitude (0..1)
+        name = f'{self.name}_mulmag'
+        mulmag = 0 if name not in pars else pars[name].v
 
         # get profiles for each pixel size
         emiss_arr = {}
@@ -386,4 +405,5 @@ class EmissionMeasureCluster(ClusterBase):
             pix_cx = cx_as*img.invpixsize + img.origin[1]
 
             # add SB profile to image
-            addSBToImg_Comb(1, sb_arr, pix_cx, pix_cy, e, slosh, theta, imgarr)
+            addSBToImg_Comb(
+                1, sb_arr, pix_cx, pix_cy, e, slosh, theta, mulm, mulmag, imgarr)

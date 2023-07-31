@@ -29,13 +29,19 @@ cdef extern from "project_cc.hh":
 		     int xw, int yw, float *img)
     void add_sb_prof_e(float rbin, int nbins, const float *sb,
                        float xc, float yc,
-                       float e, float theta,
+                       float e, double theta,
                        int xw, int yw, float *img)
     void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
                            const float xc, const float yc,
-                           const float slosh, const float theta0,      
+                           const float slosh, const double theta0,
                            const int xw, const int yw,
                            float *img)
+    void add_sb_prof_multipole(const float rbin, const int nbins, const float *sb,
+                               const float xc, const float yc,
+                               const int m,
+                               const float mag, const double theta0,
+                               const int xw, const int yw,
+                               float *img)
 
     double logLikelihood(const int nelem, const float* data, const float* model)
     float logLikelihoodMasked(const int nelem, const float* data, const float* model, const int* mask)
@@ -87,14 +93,18 @@ def addSBToImg(float rbin, float[::1] sb, float xc, float yc,
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def addSBToImg_Comb(float rbin, float[::1] sb, float xc, float yc,
-                    float e, float slosh, float theta,
+                    float e, float slosh, double theta,
+                    int mulm, float mulmag,
                     float[:,::1] img):
     """Paint normal, elliptical or sloshing surface brightness profile onto image.
 
     e==1, slosh==0: normal
     slosh==0, e!=1: elliptical
     slosh!=0, e==1: slosh
+    mulm>0: multipole
     others: error
+
+    theta is in degrees
     """
 
     cdef int numbins, xw, yw
@@ -102,7 +112,11 @@ def addSBToImg_Comb(float rbin, float[::1] sb, float xc, float yc,
     yw = img.shape[0]
     xw = img.shape[1]
 
-    if e == 1 and slosh == 0:
+    if mulm > 0:
+        # multipole expansion
+        add_sb_prof_multipole(
+            rbin, numbins, &sb[0], xc, yc, mulm, mulmag, theta, xw, yw, &img[0,0])
+    elif e == 1 and slosh == 0:
         # circular (faster)
         add_sb_prof(
             rbin, numbins, &sb[0], xc, yc, xw, yw, &img[0,0])

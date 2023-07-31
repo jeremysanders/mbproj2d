@@ -144,7 +144,7 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
 // elliptical version of painting a profile
 void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
                    const float xc, const float yc,
-                   const float e, const float theta,
+                   const float e, const double theta,
                    const int xw, const int yw,
                    float *img)
 {
@@ -161,8 +161,9 @@ void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
   // const float inve = 1/e;
   const float sqe = sqrt(e);
   const float sqinve = sqrt(1/e);
-  const float s = sin(theta);
-  const float c = cos(theta);
+
+  const float s = float(sin(theta*(M_PI/180)));
+  const float c = float(cos(theta*(M_PI/180)));
 
   for(int y=y1; y<=y2; ++y)
     for(int x=x1; x<=x2; ++x)
@@ -179,13 +180,12 @@ void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
       }
 }
 
-
 // slosh version of painting a profile
 void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
-                      const float xc, const float yc,
-                      const float slosh, const float theta0,
-                      const int xw, const int yw,
-                      float *img)
+                       const float xc, const float yc,
+                       const float slosh, const double theta0,
+                       const int xw, const int yw,
+                       float *img)
 {
   // copy to ensure outer bin is 0
   std::vector<float> cpy_sb(sb, sb+nbins);
@@ -199,8 +199,8 @@ void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
   const int y2 = min(int(yc+maxr), yw-1);
 
   const float invrbin = 1/rbin;
-  const float s = sin(theta0);
-  const float c = cos(theta0);
+  const float s = float(sin(theta0*(M_PI/180)));
+  const float c = float(cos(theta0*(M_PI/180)));
 
   // this is the scaling factor for scaling the flux of the model for a given slosh
   // to compensate for the area scaling
@@ -232,10 +232,63 @@ void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
         const float rx = dx*c - dy*s;
 
         // this is equivalent to
-        //  rslosh = rold * (slosh*cos(atan2(dy,dx)+theta0) + 1)
+        //  rslosh = rold * (slosh*cos(atan2(dy,dx)+theta0_rad) + 1)
         const float rslosh = rold + slosh*rx*invrbin;
         const float valslosh = linear_interpolate(rslosh, cpy_sb, nbins);
         img[y*xw+x] += valslosh;
+      }
+}
+
+void add_sb_prof_multipole(const float rbin, const int nbins, const float *sb,
+                           const float xc, const float yc,
+                           const int m,
+                           const float mag, const double theta0,
+                           const int xw, const int yw,
+                           float *img)
+{
+  // copy to ensure outer bin is 0
+  std::vector<float> cpy_sb(sb, sb+nbins);
+  cpy_sb.push_back(0);
+
+  const float invrbin = 1/rbin;
+  const float st0 = float(sin(-theta0*(M_PI/180)));
+  const float ct0 = float(cos(-theta0*(M_PI/180)));
+
+  const int x1 = max(int(xc-rbin*nbins), 0);
+  const int x2 = min(int(xc+rbin*nbins), xw-1);
+  const int y1 = max(int(yc-rbin*nbins), 0);
+  const int y2 = min(int(yc+rbin*nbins), yw-1);
+
+  for(int y=y1; y<=y2; ++y)
+    for(int x=x1; x<=x2; ++x)
+      {
+        // calculate rotated dx and dy along theta0 direction
+        const float dx = (x-xc)*invrbin;
+        const float dy = (y-yc)*invrbin;
+        const float rx = dx*ct0 - dy*st0;
+        const float ry = dx*st0 + dy*ct0;
+
+        const float r = sqrt(sqr(rx) + sqr(ry));
+
+        float angcmpt = 0;
+        if(r > 1.0e-5f)
+          // angcmpt = sin(m*theta)
+          // below are expansions in terms of sin(theta) and cos(theta),
+          // where sin(theta)=ry/r and cos(theta)=rx/r
+          switch(m)
+            {
+            case 1:
+              angcmpt = ry/r; break;
+            case 2:
+              angcmpt = 2*rx*ry / (r*r); break;
+            case 3:
+              angcmpt = ry*(3/r - 4*ry*ry/(r*r*r)); break;
+            case 4:
+              angcmpt = 4*rx*ry*(rx*rx - ry*ry)/(r*r*r*r); break;
+            }
+
+        const float val = linear_interpolate(r, cpy_sb, nbins) * (1+angcmpt*mag);
+        img[y*xw+x] += val;
       }
 }
 

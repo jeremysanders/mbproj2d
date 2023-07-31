@@ -27,15 +27,22 @@ void add_sb_prof(const float rbin, const int nbins, const float *sb,
 
 void add_sb_prof_e(const float rbin, const int nbins, const float *sb,
 		   const float xc, const float yc,
-		   const float e, const float theta,
+		   const float e, const double theta,
 		   const int xw, const int yw,
 		   float* img);
 
 void add_sb_prof_slosh(const float rbin, const int nbins, const float *sb,
                        const float xc, const float yc,
-                       const float slosh, const float theta0,
+                       const float slosh, const double theta0,
                        const int xw, const int yw,
                        float *img);
+
+void add_sb_prof_multipole(const float rbin, const int nbins, const float *sb,
+                           const float xc, const float yc,
+                           const int m,
+                           const float mag, const double theta0,
+                           const int xw, const int yw,
+                           float *img);
 
 double logLikelihood(const int nelem, const float* data, const float* model);
 double logLikelihoodMasked(int nelem, const float* data, const float* model,
