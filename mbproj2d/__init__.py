@@ -26,6 +26,7 @@ from .profile_mass import *
 from .fit import *
 from .utils import *
 from .mcmc import *
+from .mcmc2 import *
 from .xspechelper import *
 from .phys import *
 from .sb import *
