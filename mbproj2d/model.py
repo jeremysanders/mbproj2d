@@ -23,6 +23,9 @@ from .par import Par, PriorGaussian, PriorBoundedGaussian
 from . import utils
 from . import ratecalc
 
+class ModelEvaluationException(Exception):
+    pass
+
 class TotalModel:
     """Combined model for data.
 
