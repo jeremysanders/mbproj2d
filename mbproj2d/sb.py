@@ -256,7 +256,11 @@ class SBMaps:
             modimg_hi = perc[2][binmap]
 
             # bin data
-            ncts = N.bincount(N.ravel(binmap), weights=N.ravel(image.imagearr))
+            ctweight = image.imagearr
+            if self.exp_correct is not None:
+                # make sb include exposure
+                ctweight = ctweight / image.expmaps[self.exp_correct]
+            ncts = N.bincount(N.ravel(binmap), weights=N.ravel(ctweight))
             sb = ncts / area
             sb[0] = N.nan   # masked pixels
             ctsimg = sb[binmap]
@@ -298,10 +302,18 @@ class SBMaps:
             setfits(img, name, val)
             sethdf5(img, name, val)
 
-        # number of pixels in each annulus
+        # number of pixels in each annulus and (optionally) exposure corrected area
         areas = []
+        ctscales = []
         for binmap, image in zip(self.prof_binmaps, self.images):
             areas.append( N.bincount(N.ravel(binmap)) * image.pixsize_as**2 )
+            if self.exp_correct is None:
+                ctscale = 1/areas[-1]
+            else:
+                ctscale = 1/(
+                    N.bincount(N.ravel(binmap), weights=N.ravel(image.expmaps[self.exp_correct]))
+                    * image.pixsize_as**2)
+            ctscales.append(ctscale)
 
         # now get profiles for each component
         for cmpt in modbins_profs_cmpts:
@@ -312,11 +324,11 @@ class SBMaps:
                 val, perr, nerr = perc[0][1:], perc[2][1:]-perc[0][1:], perc[1][1:]-perc[0][1:]
                 set3(image, cmpt, val, perr, nerr)
 
-        for image, binmap, area in zip(self.images, self.prof_binmaps, areas):
+        for image, binmap, ctscale in zip(self.images, self.prof_binmaps, ctscales):
             cts = N.bincount(N.ravel(binmap), weights=N.ravel(image.imagearr))
-            val = (cts / area)[1:]
-            perr = ((1.0 + N.sqrt(cts+0.75))/area)[1:]
-            nerr = -(N.sqrt(cts-0.25)/area)[1:]
+            val = (cts * ctscale)[1:]
+            perr = ((1.0 + N.sqrt(cts+0.75)) * ctscale)[1:]
+            nerr = -(N.sqrt(cts-0.25) * ctscale)[1:]
             set3(image, 'data', val, perr, nerr)
 
         for image, radii, area in zip(self.images, self.prof_binradii, areas):
