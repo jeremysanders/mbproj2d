@@ -2,6 +2,8 @@
 
 # eFEDS example cluster fit
 
+import logging
+
 import math
 import os
 import os.path
@@ -69,6 +71,7 @@ def writeModelImages(fname, totmodel, pars):
     hdulist.writeto(fname, overwrite=True)
 
 def fit():
+    logging.basicConfig(level=logging.DEBUG)
 
     name = 'eFEDS_Example'
 
@@ -186,17 +189,17 @@ def fit():
         print("Write model image")
         writeModelImages(modimgfname, totmod, pars)
 
-    nburn, nrun = 500, 1000
+    nburn, nrun = 500, 1400
     nsteps = nrun + nburn
     nwalkers = 3*pars.numFree()
     if nwalkers % 2 != 0:
         nwalkers += 1  # make even
 
     # do sampling, if needed
-    nprocesses = 8
+    nprocesses = 16
     mcmc = mb.MCMCSamplerEmcee(fit, nwalkers, nprocesses=nprocesses)
-    nsampled = mcmc.sampleToStore(
-        mb.MCMCStoreHDF5(chainfname, pars, nwalkers, flush_time=60),
+    nsampled = mcmc.sample(
+        mb.MCMCStoreHDF5(chainfname, pars, nwalkers, flush_time=20, nburn=nburn),
         nsteps,
     )
 
@@ -210,7 +213,7 @@ def fit():
         # h5fname is optional (by default returns info as dict)
         output = sbmaps.calcStats(
             mb.loadChainFromFile(
-                chainfname, pars, randsamples=1000, burn=nburn),
+                chainfname, pars, randsamples=1000),
             h5fname=sbfname,
         )
 

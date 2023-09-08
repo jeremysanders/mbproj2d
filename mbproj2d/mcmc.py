@@ -242,17 +242,22 @@ class MCMC:
                 x.encode('utf-8') for x in self.fit.pars.freeKeys()])
 
             # output chain
+            data = self.sampler.get_chain(
+                thin=thin, discard=discard).astype(N.float32)
             f.create_dataset(
                 'chain',
-                data=self.sampler.get_chain(
-                    thin=thin, discard=discard).astype(N.float32),
-                compression=True, shuffle=True)
+                data=data,
+                maxshape=(None,data.shape[1],data.shape[2]),
+                compression='gzip',
+                shuffle=True)
             # likelihoods for each walker, iteration
+            data = self.sampler.get_log_prob(
+                thin=thin, discard=discard).astype(N.float64)
             f.create_dataset(
                 'likelihood',
-                data=self.sampler.get_log_prob(
-                    thin=thin, discard=discard).astype(N.float64),
-                compression=True,
+                data=data,
+                maxshape=(None,data.shape[1]),
+                compression='gzip',
                 shuffle=True
             )
             if self.sampler_mode == 'emcee':
