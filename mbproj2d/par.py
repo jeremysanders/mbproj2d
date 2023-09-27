@@ -446,7 +446,7 @@ class Pars(dict):
         """Load parameters from file.
 
         :param filename: filename to load from
-        :param skipmissing: if set, then we continue if file not found
+        :param skip: if set, then we continue if file not found
         """
         try:
             with open(filename, 'rb') as f:

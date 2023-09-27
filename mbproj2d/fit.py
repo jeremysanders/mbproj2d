@@ -76,6 +76,10 @@ class Fit:
         out = [('%12g' % v) for v in vals]
         utils.uprint(' '.join(out))
 
+    def like(self):
+        """Get Likelihood object for current fit."""
+        return Likelihood(self.images, self.model, self.pars)
+
     def run(
             self,
             verbose=True, sigdelta=0.01, maxloops=10, maxfititer=None,
@@ -97,7 +101,7 @@ class Fit:
         Returns (fit_like, success) where success indicates less than maximum number of iterations were done.
         """
 
-        initlike = Likelihood(self.images, self.model, self.pars)
+        initlike = self.like()
         showlike = [initlike.total]
 
         if methods is None:
@@ -114,7 +118,7 @@ class Fit:
 
         def fitfunc(p, *args):
             self.pars.setFree(p)
-            like = Likelihood(self.images, self.model, self.pars)
+            like = self.like()
             if verbose and like.total > showlike[0]+sigdelta:
                 showlike[0] = like.total
                 self.printPars(like)
@@ -134,8 +138,9 @@ class Fit:
                 options['maxiter'] = maxfititer
 
             for method in methods:
-                utils.uprint(' Using method %s' % method)
-                if method[:3].lower() == 'ln_':
+                if verbose:
+                    utils.uprint(' Using method %s' % method)
+                if method[:3].lower() in ('ln_', 'gn_'):
                     # nlopt methods
                     meth = getattr(nlopt, method.upper())
                     opt = nlopt.opt(meth, len(fpars))

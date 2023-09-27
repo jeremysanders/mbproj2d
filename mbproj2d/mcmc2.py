@@ -44,7 +44,7 @@ class MCMCStore:
     :param float flush_time: how often to flush output to file (s)
     """
 
-    def __init__(self, filename, pars, nwalkers, thin=1, nburn=0, flush_time=300):
+    def __init__(self, filename, pars, nwalkers, thin=1, nburn=0, flush_time=600):
         self.filename = filename
         self.pars = pars
         self.nwalkers = nwalkers
