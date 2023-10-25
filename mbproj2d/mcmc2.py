@@ -351,3 +351,49 @@ class MCMCSamplerEmcee(MCMCSampler):
                 store=False,
                 progress=progress):
             store.add(result.coords, result.log_prob)
+
+class MCMCSamplerZeus(MCMCSampler):
+    """Sample fit using Zeus.
+
+    :param fit: Fit object
+    :param int nwalkers: Number of walkers
+    :param int nprocesses: Number of processes to use
+    :param float initspread: Spread to add to initial parameters
+    """
+
+    def __init__(self, fit, nwalkers, nprocesses=1, initspread=0.01):
+        MCMCSampler.__init__(self, fit)
+        self.nwalkers = nwalkers
+        self.nprocesses = nprocesses
+        self.npars = fit.pars.numFree()
+        self.initspread = initspread
+
+    def inner_sample(self, store, nsteps, progress=True):
+        """Do MCMC sampling.
+
+        :param store: MCMCStore object
+        :param int nsteps: number of steps to add to chain
+        :param progress: show progress bar
+        """
+
+        logging.info(f"MCMCSamplerZeus: setting up sampler with {self.nwalkers} walkers")
+
+        assert store.nwalkers == self.nwalkers
+
+        likefunc = self.getLikeFunc()
+        pool = self.makePool(self.nprocesses, likefunc)
+        sampler = zeus.EnsembleSampler(
+            self.nwalkers,
+            self.npars,
+            likefunc,
+            pool=pool,
+        )
+
+        p0 = self.createWalkerP0(store, self.nwalkers, self.initspread)
+
+        logging.info(f"MCMCSamplerZeus: sampling {nsteps}")
+        for result in sampler.sample(
+                p0,
+                iterations=nsteps,
+                progress=progress):
+            store.add(result[0], result[1])
