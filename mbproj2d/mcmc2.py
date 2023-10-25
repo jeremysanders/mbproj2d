@@ -56,6 +56,8 @@ class MCMCStore:
         self.npars = pars.numFree()
         self.nrows = 0
         self.last_pos = None
+        self.best_pos = None
+        self.best_like = -N.inf
         self.burn_ct = 0
         self.thin_ct = 0
 
@@ -84,6 +86,12 @@ class MCMCStore:
 
         par_arr = N.array(par_arr)
         like_arr = N.array(like_arr)
+
+        # keep track of highest likelihood position
+        best_like_idx = N.argmax(like_arr)
+        if like_arr[best_like_idx] > self.best_like:
+            self.best_like = like_arr[best_like_idx]
+            self.best_pos = N.array(par_arr[best_like_idx,:])
 
         if self.burn_ct >= self.nburn:
             self.thin_ct += 1
@@ -139,6 +147,10 @@ class MCMCStoreHDF5(MCMCStore):
                 raise RuntimeError(
                     f"Inconsistent number of parameters in file {self.filename}")
 
+            if 'bestpos' in fin:
+                self.best_pos = N.array(fin['bestpos'])
+                self.best_like = float(fin.attrs['bestlike'])
+
             self.burn_ct = fin.attrs['burn']
 
     def createNew(self):
@@ -169,6 +181,8 @@ class MCMCStoreHDF5(MCMCStore):
                 shuffle=True,
                 dtype='f8',
             )
+            fout.create_dataset('bestpos', (self.npars,), dtype='f8')
+            fout.attrs['bestlike'] = -N.inf
 
     def flush(self):
         """Update output file."""
@@ -192,6 +206,11 @@ class MCMCStoreHDF5(MCMCStore):
                 like = fout['likelihood']
                 like.resize((self.nrows,self.nwalkers))
                 like[-rows:,:] = like_buf
+
+            if 'bestpos' not in fout:
+                fout.create_dataset('bestpos', (self.npars,), dtype='f8')
+            fout['bestpos'][:] = self.best_pos
+            fout.attrs['bestlike'] = self.best_like
 
         self.pars_buf.clear()
         self.like_buf.clear()
