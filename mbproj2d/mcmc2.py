@@ -254,10 +254,14 @@ class MCMCSampler:
         fit = self.fit
         pars = fit.pars.copy()
         pars_arr = N.array(pars.freeVals())
+        like = Likelihood(fit.images, fit.model, pars).total
         if not N.all(N.isfinite(pars_arr)):
             raise RuntimeError("Parameter values not finite")
-        if not N.isfinite(Likelihood(fit.images, fit.model, pars).total):
+        if not N.isfinite(like):
             raise RuntimeError("Initial likelihood not finite")
+        if store.best_pos is None:
+            store.best_pos = N.array(pars_arr)
+            store.best_like = like
 
         # create enough parameters with finite likelihoods
         p0 = []
