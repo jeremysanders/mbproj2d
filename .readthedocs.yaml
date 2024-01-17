@@ -38,6 +38,4 @@ python:
   install:
     - method: pip
       path: .
-      extra_requirements:
-        - cython
-        - numpy
+    - requirements: docs/requirements.txt
