@@ -14,6 +14,8 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+# Old MCMC routines, included for backward compatibility
+
 try:
     import emcee
 except ImportError:
@@ -32,8 +34,9 @@ from .fit import Likelihood
 from . import utils
 
 class MCMC:
-    """
-    Handles MCMC analysis of Fit
+    """Handles MCMC analysis of Fit. Please note this is deprecated for
+    new code - please see MCMCSampler/MCMCSamplerEmcee and
+    MCMCStore/MCMCStoreHDF5.
 
     :param Fit fit: Fit object to use for mcmc
     :param int walkers: number of walkers to use

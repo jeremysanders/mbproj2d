@@ -2,6 +2,8 @@
 
 # eFEDS example cluster fit
 
+import logging
+
 import math
 import os
 import os.path
@@ -69,6 +71,7 @@ def writeModelImages(fname, totmodel, pars):
     hdulist.writeto(fname, overwrite=True)
 
 def fit():
+    logging.basicConfig(level=logging.DEBUG)
 
     name = 'eFEDS_Example'
 
@@ -82,7 +85,7 @@ def fit():
 
     # output filenames
     parfname = os.path.join(fitdir, 'pars_%s.pickle' % suffix)
-    chainfname = os.path.join(fitdir, 'chain_%s.hdf5' % suffix)
+    chainfname = os.path.join(fitdir, 'chain_2_%s.hdf5' % suffix)
     physfname = os.path.join(fitdir, 'phys_%s.hdf5' % suffix)
     modimgfname = os.path.join(fitdir, 'img_%s.fits' % suffix)
     sbfname = os.path.join(fitdir, 'sb_%s.hdf5' % suffix)
@@ -186,23 +189,21 @@ def fit():
         print("Write model image")
         writeModelImages(modimgfname, totmod, pars)
 
-    if not os.path.exists(chainfname):
-        nwalkers = 3*pars.numFree()
-        if nwalkers % 2 != 0:
-            nwalkers += 1  # make even
+    nburn, nrun = 500, 1400
+    nsteps = nrun + nburn
+    nwalkers = 3*pars.numFree()
+    if nwalkers % 2 != 0:
+        nwalkers += 1  # make even
 
-        # do MCMC on parameters. The output is written to a HDF5 fits
-        # containing the chain values and likelihoods
-        print("Starting MCMC")
-        nprocesses = 8
-        mcmc = mb.MCMC(
-            fit,
-            processes=nprocesses,
-            nwalkers=nwalkers)
-        mcmc.run(1000)
-        mcmc.save(chainfname, discard=500)
+    # do sampling, if needed
+    nprocesses = 16
+    mcmc = mb.MCMCSamplerEmcee(fit, nwalkers, nprocesses=nprocesses)
+    nsampled = mcmc.sample(
+        mb.MCMCStoreHDF5(chainfname, pars, nwalkers, flush_time=20, nburn=nburn),
+        nsteps,
+    )
 
-    if not os.path.exists(sbfname):
+    if not os.path.exists(sbfname) or nsampled > 0:
         # get profile and model image residuals compared to data
         # note that the origin for profiles is fixed to the coordinate given
         sbmaps = mb.SBMaps(
@@ -211,16 +212,18 @@ def fit():
         )
         # h5fname is optional (by default returns info as dict)
         output = sbmaps.calcStats(
-            mb.loadChainFromFile(chainfname, pars, randsamples=1000),
+            mb.loadChainFromFile(
+                chainfname, pars, randsamples=1000),
             h5fname=sbfname,
         )
 
-    if not os.path.exists(physfname):
+    if not os.path.exists(physfname) or nsampled > 0:
         # compute physical quantities for the first cluster
         cluster0 = cluster_cmpts[0]
 
         # convert chain to physical profiles for this cluster model
-        phys = mb.Phys(pars, cluster0, rate_rmf=images[0].rmf, rate_arf=images[0].arf)
+        phys = mb.Phys(
+            pars, cluster0, rate_rmf=images[0].rmf, rate_arf=images[0].arf)
 
         # Take 1000 random samples from the chain and calculate the median physical
         # profiles and 1-sigma range.
@@ -230,7 +233,8 @@ def fit():
         phys.chainFileToStatsFile(
             chainfname,
             physfname,
-            burn=0, randsamples=1000
+            burn=nburn,
+            randsamples=1000,
         )
 
     print('Done', name)

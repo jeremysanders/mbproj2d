@@ -14,6 +14,9 @@
 # along with this program; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+# This module is intended to replace mcmc. It supports saving chains
+# incrementally and restarting and extending them later
+
 import time
 import os.path
 import logging
