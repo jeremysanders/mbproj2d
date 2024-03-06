@@ -1,0 +1,8 @@
+astropy
+cython
+emcee
+h5py
+numpy
+pyfftw
+scipy
+nlopt

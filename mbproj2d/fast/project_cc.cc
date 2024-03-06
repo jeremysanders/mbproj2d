@@ -271,7 +271,8 @@ void add_sb_prof_multipole(const float rbin, const int nbins, const float *sb,
         const float r = sqrt(sqr(rx) + sqr(ry));
 
         float angcmpt = 0;
-        if(r > 1.0e-5f)
+        if(r > 1.00001f)
+          // (hack: 1 here instead of 0 is to fix issue with centre causing large m1)
           // angcmpt = sin(m*theta)
           // below are expansions in terms of sin(theta) and cos(theta),
           // where sin(theta)=ry/r and cos(theta)=rx/r

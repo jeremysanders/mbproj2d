@@ -279,6 +279,7 @@ class ClusterHydro(ClusterBase):
 
         Z_solar = self.Z_prof.compute(pars, radii)
         ne_pcm3 = self.ne_prof.compute(pars, radii)
+
         g_cmps2, Phi_arr = self.mass_prof.compute(pars, radii)
 
         # prevent formulae blowing up
@@ -303,7 +304,7 @@ class ClusterHydro(ClusterBase):
         # discarding pressure between shells
         P_ergpcm3 = N.cumsum(deltaP_ergpcm3[::-1])[::-2]
 
-        # calculate temperatures given pressures ad densities
+        # calculate temperatures given pressures and densities
         T_keV = P_ergpcm3 / (P_keV_to_erg * ne_pcm3)
 
         T_keV = N.clip(T_keV, self.Tmin, self.Tmax)

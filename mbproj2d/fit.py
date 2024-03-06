@@ -25,6 +25,7 @@ except ImportError:
 
 from . import utils
 from . import fast
+from .model import ModelEvaluationException
 
 class Likelihood:
     """Calculate a likelihood for the model and data.
@@ -42,12 +43,15 @@ class Likelihood:
         if not N.isfinite(self.prior):
             imagelikes = [-N.inf]*len(images)
         else:
-            modelarrs = model.compute(pars)
-            imagelikes = []
-            for modarr, image in zip(modelarrs, images):
-                like = fast.calcPoissonLogLikelihoodMasked(
-                    image.imagearr, modarr, image.mask)
-                imagelikes.append(like)
+            try:
+                modelarrs = model.compute(pars)
+                imagelikes = []
+                for modarr, image in zip(modelarrs, images):
+                    like = fast.calcPoissonLogLikelihoodMasked(
+                        image.imagearr, modarr, image.mask)
+                    imagelikes.append(like)
+            except ModelEvaluationException:
+                imagelikes = [-N.inf]*len(images)
 
         self.images = imagelikes
         self.total = self.prior + sum(imagelikes)
