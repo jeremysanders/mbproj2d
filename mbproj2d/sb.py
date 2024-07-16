@@ -221,7 +221,7 @@ class SBMaps:
             # collect model images
             if model_images:
                 for i, imgarr in enumerate(modarrs['total']):
-                    imgarr[self.images[i].mask==0] = N.nan
+                    # imgarr[self.images[i].mask==0] = N.nan
                     modimgs[i][ichain, :, :] = imgarr
 
         return modbins_cvt, modbins_profs_cmpts, modimgs
