@@ -196,6 +196,8 @@ class Phys:
 
         Mgas_g = ne_pcm3 * self.out_vol_cm3 * mu_e*mu_g
         v['Mgas_Msun'] = Mgas_g * (1/solar_mass_g)
+        
+        v['YX'] = Mgas_g * (1/solar_mass_g) * T_keV
 
         norm_pkpc3 = self.nesqd_to_norm * ne_pcm3**2
 
