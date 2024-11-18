@@ -6,3 +6,4 @@ numpy
 pyfftw
 scipy
 nlopt
+wheel
