@@ -24,7 +24,7 @@ Requirements:
 
 Installation instructions using pip:
 
-    python3 -m pip install astropy cython emcee h5py numpy pyfftw scipy
+    python3 -m pip install astropy cython emcee h5py numpy pyfftw scipy wheel
     python3 -m pip install git+https://github.com/jeremysanders/mbproj2d
 
 If using conda, the following package is also required for Linux:
