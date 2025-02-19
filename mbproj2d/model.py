@@ -91,7 +91,7 @@ class TotalModel:
         # add on background
         if self.back_models and apply_back:
             for model in self.back_models:
-                model.compute(pars, imgarrs)
+                model.compute(pars, imgarrs, apply_expmap=apply_expmap)
 
         return imgarrs
 
@@ -249,7 +249,7 @@ class BackModelFlat(BackModelBase):
         self.log = log
         self.expmap = expmap
 
-    def compute(self, pars, imgarrs):
+    def compute(self, pars, imgarrs, apply_expmap=True):
         scale = pars['%s_scale' % self.name].v
         for image, imgarr in zip(self.images, imgarrs):
             v = pars['%s_%s' % (self.name, image.img_id)].v
@@ -258,7 +258,7 @@ class BackModelFlat(BackModelBase):
             if self.normarea:
                 v *= image.pixsize_as**2
             v *= scale
-            if self.expmap is not None:
+            if self.expmap is not None and apply_expmap:
                 v *= image.expmaps[self.expmap]
             imgarr += v
 
@@ -313,20 +313,21 @@ class BackModelVigNoVig(BackModelBase):
         self.expmap = expmap
         self.expmap_novig = expmap_novig
 
-    def compute(self, pars, imgarrs):
+    def compute(self, pars, imgarrs, apply_expmap=True):
         scale = math.exp(pars['%s_logscale' % self.name].v)
         for i, (image, imgarr) in enumerate(zip(self.images, imgarrs)):
             imgkey = '%s_%s' % (self.name, image.img_id)
 
-            v = math.exp(pars[imgkey].v) * image.pixsize_as**2 * scale
-            fracvig = (lambda x: math.exp(x)/(math.exp(x)+1))(
-                pars['%s_vf' % imgkey].v
-            )
+            out = math.exp(pars[imgkey].v) * image.pixsize_as**2 * scale
 
-            out = v * (
-                image.expmaps[self.expmap] * fracvig +
-                image.expmaps[self.expmap_novig]*((1-fracvig)*self.vigratios[i])
-            )
+            if apply_expmaps:
+                fracvig = (lambda x: math.exp(x)/(math.exp(x)+1))(
+                    pars['%s_vf' % imgkey].v
+                )
+                out = out * (
+                    image.expmaps[self.expmap] * fracvig +
+                    image.expmaps[self.expmap_novig]*((1-fracvig)*self.vigratios[i])
+                )
 
             imgarr += out
 
