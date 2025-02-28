@@ -143,6 +143,10 @@ class XSpecHelper:
 
         if arf is None:
             arf = 'none'
+        elif not os.path.isfile(arf):
+            raise RuntimeError('ARF does not exist')
+        if not os.path.isfile(rmf):
+            raise RuntimeError('RMF does not exist')
 
         self.write('fakeit none & %s & %s & y & foo & %s & 1.0\n' %
             (rmf, arf, self.tempoutput))
