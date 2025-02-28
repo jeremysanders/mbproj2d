@@ -135,7 +135,7 @@ class TotalModel:
         # background components
         for model in self.back_models:
             imgarrs = make_blank_images()
-            model.compute(pars, imgarrs)
+            model.compute(pars, imgarrs, apply_expmap=apply_expmap)
             out[model.name] = imgarrs
 
         # add up total
