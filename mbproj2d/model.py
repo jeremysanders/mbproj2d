@@ -211,7 +211,10 @@ class BackModelBase:
         self.images = images
         self.expmap = expmap
 
-    def compute(self, pars, imgarrs):
+    def compute(self, pars, imgarrs, apply_expmap=True):
+        """Compute the background model given parameters and input images.
+        If apply_expmap is True, the expmap should be applied to the output.
+        """
         pass
 
     def prior(self, pars):
