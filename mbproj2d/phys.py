@@ -366,6 +366,51 @@ class Phys:
 
         return data
 
+    def savePhysChains(self, filename, physchain, thin=1, discard=0):
+        """Save the Phys chains (from computePhysChains) in an HDF5 file.
+
+        :param str filename: output hdf5 filename
+        :param int thin: save every N samples from chain
+        :param int discard: discard first N samples
+        """
+
+        with h5py.File(filename, 'w') as fout:
+            # save a list of physical parameters
+            params = sorted(physchain)
+            fout['phys_params'] = N.array([par.encode('utf-8') for par in params])
+
+            # put the chains inside a group
+            grp = fout.create_group('phys_chains')
+            for par in params:
+                data = physchain[par].astype(N.float32)
+                data = data[discard::thin]
+
+                grp.create_dataset(
+                    par,
+                    data=data,
+                    compression='gzip',
+                    shuffle=True)
+
+    def loadPhysChains(self, filename, burn=0, thin=1):
+        """Load a Phys chain from the HDF5 file given.
+
+        :param str filename: input hdf5 filename
+        :param int burn: discard first N samples
+        :param int thin: load very N samples
+
+        Returns a dict."""
+
+        out = {}
+        with h5py.File(filename, 'r') as fin:
+            # get a list of paramters
+            params = [x.decode('utf-8') for x in fin['phys_params']]
+
+            grp = fin['phys_chains']
+            for param in params:
+                data = N.array(grp[param])
+                out[param] = data[burn::thin]
+        return out
+
     def calcPhysChainStats(self, physchains, confint=68.269):
         """Take physical chains and compute profiles with 1 sigma ranges.
 
