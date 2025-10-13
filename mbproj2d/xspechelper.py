@@ -57,11 +57,12 @@ class XSpecHelper:
 
     specialcode = '@S@T@V'
     specialre = re.compile('%s (.*) %s' % (specialcode, specialcode))
+    xspeccmd = 'xspec'
 
     def __init__(self):
         try:
             self.xspecsub = subprocess.Popen(
-                ['xspec'],
+                [self.xspeccmd],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 bufsize=1,
