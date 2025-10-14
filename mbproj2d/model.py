@@ -323,7 +323,7 @@ class BackModelVigNoVig(BackModelBase):
 
             out = math.exp(pars[imgkey].v) * image.pixsize_as**2 * scale
 
-            if apply_expmaps:
+            if apply_expmap:
                 fracvig = (lambda x: math.exp(x)/(math.exp(x)+1))(
                     pars['%s_vf' % imgkey].v
                 )
