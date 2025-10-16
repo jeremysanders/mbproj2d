@@ -23,8 +23,10 @@ from .par import Par, PriorGaussian, PriorBoundedGaussian
 from . import utils
 from . import ratecalc
 
+
 class ModelEvaluationException(Exception):
     pass
+
 
 class TotalModel:
     """Combined model for data.
@@ -91,7 +93,10 @@ class TotalModel:
         # add on background
         if self.back_models and apply_back:
             for model in self.back_models:
-                model.compute(pars, imgarrs, apply_expmap=apply_expmap)
+                if "apply_expmap" in model.compute.__code__.co_varnames:  # for back model with an apply_expmap option
+                    model.compute(pars, imgarrs, apply_expmap=apply_expmap)
+                else:
+                    model.compute(pars, imgarrs)
 
         return imgarrs
 
@@ -185,9 +190,9 @@ class TotalModel:
             apply_src=apply_src, apply_back=apply_back)
         for image, mod in zip(self.images, modimgs):
             if mask:
-                mod[image.mask==0] = N.nan
+                mod[image.mask == 0] = N.nan
             if trim_original:
-                mod = mod[:image.orig_shape[0],:image.orig_shape[1]]
+                mod = mod[:image.orig_shape[0], :image.orig_shape[1]]
 
             hdu = fits.ImageHDU(mod)
             hdu.header['EXTNAME'] = image.img_id
@@ -196,6 +201,7 @@ class TotalModel:
             hdus.append(hdu)
         hdulist = fits.HDUList(hdus)
         hdulist.writeto(filename, overwrite=True)
+
 
 class BackModelBase:
     """Base background model. Does nothing.
@@ -219,6 +225,7 @@ class BackModelBase:
 
     def prior(self, pars):
         return 0
+
 
 class BackModelFlat(BackModelBase):
     """Flat background model.
@@ -259,11 +266,12 @@ class BackModelFlat(BackModelBase):
             if self.log:
                 v = math.exp(min(v, 100))
             if self.normarea:
-                v *= image.pixsize_as**2
+                v *= image.pixsize_as ** 2
             v *= scale
             if self.expmap is not None and apply_expmap:
                 v *= image.expmaps[self.expmap]
             imgarr += v
+
 
 class BackModelVigNoVig(BackModelBase):
     """A background model with vignetted and non-vignetted components.
@@ -306,7 +314,7 @@ class BackModelVigNoVig(BackModelBase):
             pars['%s_vf' % imgkey] = Par(0.1, prior=PriorBoundedGaussian(
                 0, 1, minval=-5, maxval=5))
             if rescale_novig:
-                self.vigratios.append( N.median(
+                self.vigratios.append(N.median(
                     (image.expmaps[expmap] /
                      image.expmaps[expmap_novig])[image.mask != 0]
                 ))
@@ -321,15 +329,15 @@ class BackModelVigNoVig(BackModelBase):
         for i, (image, imgarr) in enumerate(zip(self.images, imgarrs)):
             imgkey = '%s_%s' % (self.name, image.img_id)
 
-            out = math.exp(pars[imgkey].v) * image.pixsize_as**2 * scale
+            out = math.exp(pars[imgkey].v) * image.pixsize_as ** 2 * scale
 
             if apply_expmap:
-                fracvig = (lambda x: math.exp(x)/(math.exp(x)+1))(
+                fracvig = (lambda x: math.exp(x) / (math.exp(x) + 1))(
                     pars['%s_vf' % imgkey].v
                 )
                 out = out * (
-                    image.expmaps[self.expmap] * fracvig +
-                    image.expmaps[self.expmap_novig]*((1-fracvig)*self.vigratios[i])
+                        image.expmaps[self.expmap] * fracvig +
+                        image.expmaps[self.expmap_novig] * ((1 - fracvig) * self.vigratios[i])
                 )
 
             imgarr += out
@@ -341,19 +349,20 @@ class BackModelVigNoVig(BackModelBase):
         for i, image in enumerate(images):
             imgkey = '%s_%s' % (self.name, image.img_id)
 
-            fracvig = (lambda x: math.exp(x)/(math.exp(x)+1))(
+            fracvig = (lambda x: math.exp(x) / (math.exp(x) + 1))(
                 pars['%s_vf' % imgkey].v
             )
 
             expmap = (
-                image.expmaps[self.expmap]*fracvig +
-                image.expmaps[self.expmap_novig]*((1-fracvig)*self.vigratios[i])
+                    image.expmaps[self.expmap] * fracvig +
+                    image.expmaps[self.expmap_novig] * ((1 - fracvig) * self.vigratios[i])
             )
 
             average = N.mean((image.imagearr / expmap)[image.mask != 0])
             if average > 0:
-                v = math.log(average / scale / image.pixsize_as**2)
+                v = math.log(average / scale / image.pixsize_as ** 2)
                 pars['%s_%s' % (self.name, image.img_id)].val = v
+
 
 class SrcModelBase:
     """Base class for source models.
