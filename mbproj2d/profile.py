@@ -257,6 +257,7 @@ class ProfileGNFWDensity(ProfileBase):
 
     def _gnfwprof(self, rin_kpc, rout_kpc, n0, alpha, beta, gamma, rs):
         """Averaged value n in a shell from rin_kpc to rout_kpc"""
+        rin_kpc = N.where(rin_kpc <= 0, 1e-10, rin_kpc)  # in case the first element is zero
         vol_shell = 4 / 3 * math.pi * utils.diffCube(rout_kpc, rin_kpc)
         nav = (self._intf_gnfw(rout_kpc, n0, alpha, beta, gamma, rs) -
                self._intf_gnfw(rin_kpc, n0, alpha, beta, gamma, rs)) / vol_shell
