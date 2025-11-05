@@ -23,6 +23,7 @@ from .physconstants import kpc_cm
 from .par import Par, PriorGaussian, PriorBoundedGaussian
 from . import utils
 
+
 class Radii:
     """Define an equally-spaced set of shells/annuli and project between the two.
     :param rshell_kpc: width of shells/annuli in kpc
@@ -34,28 +35,30 @@ class Radii:
         self.num = num
         self.rshell_kpc = rshell_kpc
 
-        self.edges_kpc = N.arange(num+1)*rshell_kpc
+        self.edges_kpc = N.arange(num + 1) * rshell_kpc
         self.inner_kpc = rin = self.edges_kpc[:-1]
         self.inner_cm = rin * kpc_cm
         self.outer_kpc = rout = self.edges_kpc[1:]
         self.outer_cm = rout * kpc_cm
-        self.cent_kpc = 0.5*(rout+rin)
+        self.cent_kpc = 0.5 * (rout + rin)
         self.cent_cm = self.cent_kpc * kpc_cm
         self.cent_logkpc = N.log(self.cent_kpc)
         # if shells are constant density, this is the mass-averaged radius
         self.massav_kpc = 0.75 * utils.diffQuart(rout, rin) / utils.diffCube(rout, rin)
         self.area_kpc2 = math.pi * utils.diffSqr(rout, rin)
-        self.vol_kpc3 = (4/3*math.pi)*utils.diffCube(rout, rin)
+        self.vol_kpc3 = (4 / 3 * math.pi) * utils.diffCube(rout, rin)
 
         # matrix to convert from emissivity (per kpc3) to surface
         # brightness (per kpc2). projectionVolumeMatrix produces a
         # matrix which gives the total counts per annulus, so we want
         # to divide by the annulus area.
         self.proj_matrix = (
-            utils.projectionVolumeMatrix(self.edges_kpc) / self.area_kpc2[:,N.newaxis] )
+                utils.projectionVolumeMatrix(self.edges_kpc) / self.area_kpc2[:, N.newaxis])
+
     def project(self, emissivity_pkpc3):
         """Project from emissivity profile to surface brightness (per kpc2)."""
         return self.proj_matrix.dot(emissivity_pkpc3).astype(N.float32)
+
 
 class ProfileBase:
     def __init__(self, name, pars):
@@ -68,6 +71,7 @@ class ProfileBase:
     def prior(self, pars):
         """Return any prior associated with this profile."""
         return 0
+
 
 class ProfileSum(ProfileBase):
     """Add one or more profiles to make a total profile."""
@@ -86,6 +90,7 @@ class ProfileSum(ProfileBase):
     def prior(self, pars):
         return sum((prof.prior(pars) for prof in self.subprofs))
 
+
 class ProfileFlat(ProfileBase):
     """Constant value profile."""
 
@@ -100,6 +105,7 @@ class ProfileFlat(ProfileBase):
             v = math.exp(v)
         return N.full(radii.num, v)
 
+
 class ProfileBinned(ProfileBase):
     """Profile made up of constant values between particular radial edges.
 
@@ -111,7 +117,7 @@ class ProfileBinned(ProfileBase):
     def __init__(self, name, pars, rbin_edges_kpc, defval=0., log=False):
 
         ProfileBase.__init__(self, name, pars)
-        for i in len(rbin_edges_kpc)-1:
+        for i in len(rbin_edges_kpc) - 1:
             pars['%s_%03i' % (name, i)] = Par(defval)
         self.rbin_edges_kpc = rbin_edges_kpc
         self.log = log
@@ -120,11 +126,11 @@ class ProfileBinned(ProfileBase):
         pvals = N.array([
             pars['%s_%03i' % (self.name, i)].v
             for i in range(radii.num)
-            ])
+        ])
         if self.log:
             pvals = N.exp(vals)
         idx = N.searchsorted(self.rbin_edges_kpc[1:], radii.cent_kpc)
-        idx = N.clip(idx, 0, len(pvals)-1)
+        idx = N.clip(idx, 0, len(pvals) - 1)
 
         # lookup bin for value
         outvals = pvals[idx]
@@ -133,6 +139,7 @@ class ProfileBinned(ProfileBase):
         outvals[radii.inner_kpc > rbin_edges_kpc[-1]] = N.nan
 
         return outvals
+
 
 class ProfileInterpol(ProfileBase):
     """Create interpolated profile between fixed values
@@ -158,8 +165,8 @@ class ProfileInterpol(ProfileBase):
         pvals = N.array([
             pars['%s_%03i' % (self.name, i)].v
             for i in range(len(self.rcent_logkpc))
-            ])
-        if self.mode=='linear' and not self.extrapolate:
+        ])
+        if self.mode == 'linear' and not self.extrapolate:
             vals = N.interp(radii.cent_logkpc, self.rcent_logkpc, pvals)
         else:
             f = scipy.interpolate.interp1d(
@@ -171,6 +178,7 @@ class ProfileInterpol(ProfileBase):
         if self.log:
             vals = N.exp(vals)
         return vals
+
 
 def _betaprof(rin_kpc, rout_kpc, n0, beta, rc_kpc):
     """Return beta function density profile
@@ -184,12 +192,14 @@ def _betaprof(rin_kpc, rout_kpc, n0, beta, rc_kpc):
     # between r1 and r2
     def intfn(r_kpc):
         return (
-            4/3 * n0 * math.pi * r_kpc**3 *
-            hyp2f1(3/2, 3/2*beta, 5/2, -(r_kpc/rc_kpc)**2)
+                4 / 3 * n0 * math.pi * r_kpc ** 3 *
+                hyp2f1(3 / 2, 3 / 2 * beta, 5 / 2, -(r_kpc / rc_kpc) ** 2)
         )
+
     nav = (intfn(rout_kpc) - intfn(rin_kpc)) / (
-        4/3*math.pi * utils.diffCube(rout_kpc,rin_kpc))
+            4 / 3 * math.pi * utils.diffCube(rout_kpc, rin_kpc))
     return nav
+
 
 class ProfileBeta(ProfileBase):
     """Beta model.
@@ -203,7 +213,7 @@ class ProfileBeta(ProfileBase):
     def __init__(self, name, pars):
         ProfileBase.__init__(self, name, pars)
         pars['%s_logn0' % name] = Par(math.log(1e-3), minval=-14., maxval=5.)
-        pars['%s_beta' % name] = Par(2/3, minval=0., maxval=4.)
+        pars['%s_beta' % name] = Par(2 / 3, minval=0., maxval=4.)
         pars['%s_logrc' % name] = Par(math.log(300), minval=-2, maxval=8.5)
 
     def compute(self, pars, radii):
@@ -215,6 +225,55 @@ class ProfileBeta(ProfileBase):
             radii.inner_kpc, radii.outer_kpc,
             n0, beta, rc_kpc)
         return prof
+
+
+class ProfileGNFWDensity(ProfileBase):
+    """Density model following the formalism of Eq.A1 in Nagai+07,
+       which is more flexible than S&A+07"""
+
+    def __init__(self, name, pars):
+        super().__init__(name, pars)
+        pars['%s_logn0' % name] = Par(math.log(1e-3), minval=-14, maxval=5., soft=True)
+        pars['%s_alpha' % name] = Par(2, minval=.5, maxval=4., soft=True)
+        pars['%s_beta' % name] = Par(4, minval=0.2, maxval=10., soft=True)
+        pars['%s_gamma' % name] = Par(4, minval=0, maxval=3., soft=True)
+        pars['%s_logrs' % name] = Par(math.log(1000), minval=0., maxval=8., soft=True)
+
+    @staticmethod
+    def _gnfw(r, n0, alpha, beta, gamma, rs):
+        x = r / rs
+        return n0 / (x ** gamma * (1 + x ** alpha) ** ((beta - gamma) / alpha))
+
+    @staticmethod
+    def _intf_gnfw(r_kpc, n0, alpha, beta, gamma, rs_kpc):
+        """Spherical integral \int 4/3 pi f(r) r^2 dr, where f(r) is gNFW"""
+        x = r_kpc / rs_kpc
+        cmp1 = 4 * math.pi * r_kpc ** 3 * n0
+        cmp2 = x ** -gamma / (3 - gamma) * hyp2f1((3 - gamma) / alpha,
+                                                  (beta - gamma) / alpha,
+                                                  (alpha - gamma + 3) / alpha,
+                                                  -x ** alpha)
+        return cmp1 * cmp2
+
+    def _gnfwprof(self, rin_kpc, rout_kpc, n0, alpha, beta, gamma, rs):
+        """Averaged value n in a shell from rin_kpc to rout_kpc"""
+        rin_kpc = N.where(rin_kpc <= 0, 1e-10, rin_kpc)  # in case the first element is zero
+        vol_shell = 4 / 3 * math.pi * utils.diffCube(rout_kpc, rin_kpc)
+        nav = (self._intf_gnfw(rout_kpc, n0, alpha, beta, gamma, rs) -
+               self._intf_gnfw(rin_kpc, n0, alpha, beta, gamma, rs)) / vol_shell
+        return nav
+
+    def compute(self, pars, radii):
+        n0 = math.exp(pars['%s_logn0' % self.name].v)
+        alpha = pars['%s_alpha' % self.name].v
+        beta = pars['%s_beta' % self.name].v
+        gamma = pars['%s_gamma' % self.name].v
+        rs_kpc = math.exp(pars['%s_logrs' % self.name].v)
+
+        prof = self._gnfwprof(radii.inner_kpc, radii.outer_kpc,
+                              n0, alpha, beta, gamma, rs_kpc)
+        return prof
+
 
 class ProfileVikhDensity(ProfileBase):
     """Density model from Vikhlinin+06, Eqn 3.
@@ -232,13 +291,13 @@ class ProfileVikhDensity(ProfileBase):
         self.mode = mode
 
         pars['%s_logn0_1' % name] = Par(math.log(1e-3), minval=-14., maxval=5., soft=True)
-        pars['%s_beta_1' % name] = Par(2/3., prior=PriorBoundedGaussian(2/3, 0.3, minval=0.2))
+        pars['%s_beta_1' % name] = Par(2 / 3., prior=PriorBoundedGaussian(2 / 3, 0.3, minval=0.2))
         pars['%s_logrc_1' % name] = Par(math.log(300), prior=PriorGaussian(math.log(100), 1))
-        #pars['%s_alpha' % name] = Par(0., minval=-1, maxval=2.)
+        # pars['%s_alpha' % name] = Par(0., minval=-1, maxval=2.)
         pars['%s_alpha' % name] = Par(0.1, prior=PriorGaussian(0, 1))
 
         if mode in {'single', 'double'}:
-            #pars['%s_epsilon' % name] = Par(3., minval=0., maxval=5.)
+            # pars['%s_epsilon' % name] = Par(3., minval=0., maxval=5.)
             pars['%s_epsilon' % name] = Par(0., prior=PriorGaussian(0, 1))
             pars['%s_gamma' % name] = Par(3., minval=0., maxval=10, frozen=True, soft=True)
             pars['%s_logr_s' % name] = Par(math.log(500), prior=PriorGaussian(math.log(500), 0.5))
@@ -256,27 +315,28 @@ class ProfileVikhDensity(ProfileBase):
 
         r = radii.cent_kpc
         retn_sqd = (
-            n0_1**2 *
-            (r/rc_1)**(-alpha) / (
-                (1+r**2/rc_1**2)**(3*beta_1-0.5*alpha))
-            )
+                n0_1 ** 2 *
+                (r / rc_1) ** (-alpha) / (
+                        (1 + r ** 2 / rc_1 ** 2) ** (3 * beta_1 - 0.5 * alpha))
+        )
 
         if self.mode in ('single', 'double'):
             r_s = math.exp(pars['%s_logr_s' % self.name].v)
             epsilon = pars['%s_epsilon' % self.name].v
             gamma = pars['%s_gamma' % self.name].v
 
-            retn_sqd /= (1+(r/r_s)**gamma)**(epsilon/gamma)
+            retn_sqd /= (1 + (r / r_s) ** gamma) ** (epsilon / gamma)
 
         if self.mode == 'double':
             n0_2 = math.exp(pars['%s_logn0_2' % self.name].v)
             rc_2 = math.exp(pars['%s_logrc_2' % self.name].v)
             beta_2 = pars['%s_beta_2' % self.name].v
 
-            retn_sqd += n0_2**2 / (1 + r**2/rc_2**2)**(3*beta_2)
+            retn_sqd += n0_2 ** 2 / (1 + r ** 2 / rc_2 ** 2) ** (3 * beta_2)
 
         ne = N.sqrt(retn_sqd)
         return ne
+
 
 class ProfileMcDonaldT(ProfileBase):
     """Temperature model from McDonald+14, equation 1
@@ -308,15 +368,15 @@ class ProfileMcDonaldT(ProfileBase):
         c = pars['%s_c' % n].v
 
         x = radii.cent_kpc
-        x_rc = x*(1/rc)
-        x_rt = x*(1/rt)
+        x_rc = x * (1 / rc)
+        x_rt = x * (1 / rt)
 
         T = (
-            T0
-            * (x_rc**acool + (Tmin/T0))
-            / (1 + x_rc**acool)
-            * x_rt**-a
-            / (1 + x_rt**b)**(c/b)
-            )
+                T0
+                * (x_rc ** acool + (Tmin / T0))
+                / (1 + x_rc ** acool)
+                * x_rt ** -a
+                / (1 + x_rt ** b) ** (c / b)
+        )
 
         return T
