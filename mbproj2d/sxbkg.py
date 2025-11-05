@@ -133,13 +133,13 @@ class BackModelImage(BackModelBase):
             0.0, prior=PriorGaussian(0.0, 0.05), frozen=True)
         self.backimgarrs = backimgarrs
 
-    def compute(self, pars, imgarrs):
+    def compute(self, pars, imgarrs, apply_expmap=True):
         scale = math.exp(pars['%s_logscale' % self.name].v)
         for image, imgarr, backimgarr in zip(self.images, imgarrs, self.backimgarrs):
             v = math.exp(pars['%s_%s_logscale' % (self.name, image.img_id)].v)
             yw, xw = backimgarr.shape
 
-            if self.expmap is not None:
+            if self.expmap is not None and apply_expmap:
                 backimgarr = backimgarr * image.expmaps[self.expmap][:yw,:xw]
 
             imgarr[:yw,:xw] += (v*scale)*backimgarr
