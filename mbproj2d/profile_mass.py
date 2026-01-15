@@ -213,6 +213,9 @@ class ProfileMassGNFW(ProfileMassBase):
         r200_Mpc = math.exp(pars['%s_r200_logMpc' % self.name].v)
         alpha = pars['%s_alpha' % self.name].v
 
+        # relationship between r200 and scale radius
+        rs_Mpc = r200_Mpc / c
+
         # check to make sure funny things don't happen
         alpha = max(min(alpha, 2.999), 0.)
 
