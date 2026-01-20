@@ -23,7 +23,8 @@ from .profile import Radii
 from .fast import addSBToImg_Comb
 from .par import Par
 from . import utils
-from .physconstants import kpc_cm, Mpc_cm, kpc3_cm3, mu_e, mu_g, G_cgs, P_keV_to_erg
+from .physconstants import kpc_cm, Mpc_cm, kpc3_cm3, mu_e, mu_g, G_cgs, P_keV_to_erg, keV_erg
+
 
 class ClusterBase(SrcModelBase):
     """Base cluster model class.
@@ -44,7 +45,7 @@ class ClusterBase(SrcModelBase):
         self.maxradius_kpc = maxradius_kpc
 
         self.pixsize_Radii = {}  # radii indexed by pixsize
-        self.image_RateCalc = {} # RateCalc for each image
+        self.image_RateCalc = {}  # RateCalc for each image
 
         # factor to convert from ne**2 -> norm/kpc3
         self.nesqd_to_norm = utils.calcNeSqdToNormPerKpc3(cosmo)
@@ -55,7 +56,7 @@ class ClusterBase(SrcModelBase):
             # Radii object is for a particular pixel size
             if pixsize_as not in self.pixsize_Radii:
                 pixsize_kpc = pixsize_as * cosmo.as_kpc
-                num = int(maxradius_kpc/pixsize_kpc)+1
+                num = int(maxradius_kpc / pixsize_kpc) + 1
                 self.pixsize_Radii[pixsize_as] = Radii(pixsize_kpc, num)
 
             # make object to convert from plasma properties to rates
@@ -92,7 +93,7 @@ class ClusterBase(SrcModelBase):
         Z_arr = {}
         for pixsize, radii in self.pixsize_Radii.items():
             neprof, Tprof, Zprof = self.computeProfiles(pars, radii)
-            norm_arr[pixsize] = self.nesqd_to_norm * neprof**2
+            norm_arr[pixsize] = self.nesqd_to_norm * neprof ** 2
             T_arr[pixsize] = Tprof
             Z_arr[pixsize] = Zprof
 
@@ -106,11 +107,11 @@ class ClusterBase(SrcModelBase):
 
             # project emissivity to SB profile and convert to per pixel
             sb_arr = self.pixsize_Radii[pixsize_as].project(emiss_arr_pkpc3)
-            sb_arr *= (self.cosmo.as_kpc*pixsize_as)**2
+            sb_arr *= (self.cosmo.as_kpc * pixsize_as) ** 2
 
             # compute centre in pixels
-            pix_cy = cy_as*img.invpixsize + img.origin[0]
-            pix_cx = cx_as*img.invpixsize + img.origin[1]
+            pix_cy = cy_as * img.invpixsize + img.origin[0]
+            pix_cx = cx_as * img.invpixsize + img.origin[1]
 
             # add SB profile to image
             addSBToImg_Comb(
@@ -129,6 +130,7 @@ class ClusterBase(SrcModelBase):
         """Return g and Phi profiles for cluster, if available."""
         empty = N.zeros(radii.num)
         return empty, empty
+
 
 class ClusterNonHydro(ClusterBase):
     """Model for a cluster, given density, temperature and metallicity profiles."""
@@ -169,9 +171,9 @@ class ClusterNonHydro(ClusterBase):
 
     def prior(self, pars):
         return (
-            self.ne_prof.prior(pars) +
-            self.T_prof.prior(pars) +
-            self.Z_prof.prior(pars)
+                self.ne_prof.prior(pars) +
+                self.T_prof.prior(pars) +
+                self.Z_prof.prior(pars)
         )
 
     def computeProfiles(self, pars, radii):
@@ -189,15 +191,16 @@ class ClusterNonHydro(ClusterBase):
 
         return ne_arr, T_arr, Z_arr
 
+
 def computeGasAccn(radii, ne_prof):
     """Compute acceleration due to gas mass for density profile
     given."""
 
     # mass in each shell
-    masses_g = ne_prof * radii.vol_kpc3 * ( kpc3_cm3 * mu_e * mu_g)
+    masses_g = ne_prof * radii.vol_kpc3 * (kpc3_cm3 * mu_e * mu_g)
 
     # cumulative mass interior to each shell
-    Minterior_g = N.cumsum( N.hstack( ([0.], masses_g[:-1]) ) )
+    Minterior_g = N.cumsum(N.hstack(([0.], masses_g[:-1])))
 
     # this is the mean acceleration on the shell, computed as total
     # force from interior mass divided by the total mass:
@@ -205,14 +208,15 @@ def computeGasAccn(radii, ne_prof):
     #                     (M + Int_{R=R1}^{R} 4*pi*R^2*rho*dR) *
     #                     4*pi*r^2*rho*dR ) / (
     #   (4./3.*pi*(R2**3-R1**3)*rho)
-    rout, rin = radii.outer_kpc*kpc_cm, radii.inner_kpc*kpc_cm
-    gmean = G_cgs*(
-        3*Minterior_g +
-        ne_prof*(mu_e*mu_g*math.pi)*(
-            (rout-rin)*((rout+rin)**2 + 2*rin**2)))  / (
-        rin**2 + rin*rout + rout**2 )
+    rout, rin = radii.outer_kpc * kpc_cm, radii.inner_kpc * kpc_cm
+    gmean = G_cgs * (
+            3 * Minterior_g +
+            ne_prof * (mu_e * mu_g * math.pi) * (
+                    (rout - rin) * ((rout + rin) ** 2 + 2 * rin ** 2))) / (
+                    rin ** 2 + rin * rout + rout ** 2)
 
     return gmean
+
 
 class ClusterHydro(ClusterBase):
     """Hydrostatic model for cluster, given density, mass model and metallicity profile."""
@@ -261,9 +265,9 @@ class ClusterHydro(ClusterBase):
 
     def prior(self, pars):
         return (
-            self.ne_prof.prior(pars) +
-            self.mass_prof.prior(pars) +
-            self.Z_prof.prior(pars)
+                self.ne_prof.prior(pars) +
+                self.mass_prof.prior(pars) +
+                self.Z_prof.prior(pars)
         )
 
     def computeProfiles(self, pars, radii):
@@ -291,13 +295,13 @@ class ClusterHydro(ClusterBase):
 
         # changes in pressure in outer and inner halves of bin (around centre)
         # this is a bit more complex than needed, but we can change the midpt
-        P_pcm = g_cmps2 * ne_pcm3 * (mu_e*mu_g)
+        P_pcm = g_cmps2 * ne_pcm3 * (mu_e * mu_g)
         mid_cm = radii.cent_cm
         deltaP_out = (radii.outer_cm - mid_cm) * P_pcm
         deltaP_in = (mid_cm - radii.inner_cm) * P_pcm
 
         # combine halves and include outer pressure to get incremental deltaP
-        deltaP_halves = N.ravel( N.column_stack((deltaP_in, deltaP_out)) )
+        deltaP_halves = N.ravel(N.column_stack((deltaP_in, deltaP_out)))
         deltaP_ergpcm3 = N.concatenate((deltaP_halves[1:], [P0_ergpcm3]))
 
         # add up contributions inwards to get total pressure,
@@ -321,6 +325,87 @@ class ClusterHydro(ClusterBase):
             g_prof += computeGasAccn(radii, ne_prof)
 
         return g_prof, pot_prof
+
+
+class ClusterHydroPressureMass(ClusterBase):
+    """Hydrostatic model for cluster, given pressure and mass model and metallicity profile."""
+
+    # we clip to range otherwise the fitting fails
+    Tmin = 0.06
+    Tmax = 60.
+
+    def __init__(
+            self, name, pars, images,
+            cosmo=None,
+            NH_1022pcm2=0.,
+            p_prof=None, mass_prof=None, Z_prof=None,
+            maxradius_kpc=3000.,
+            cx=0., cy=0.
+    ):
+        """
+        :param name: name of model to apply to parameters
+        :param pars: Pars() object to define parameters
+        :param images: list of Image objects
+        :param cosmo: Cosmology object
+        :param NH_1022pcm2: Column density
+        :param p_prof: Profile object for pressure
+        :param mass_prof: ProfileMass object for mass profile
+        :param Z_prof: Profile object for metallicity
+        :param maxradius_kpc: Compute profile out to this radius
+        :param cx: cluster centre (arcsec)
+        :param cy: cluster centre (arcsec)
+        """
+
+        ClusterBase.__init__(
+            self, name, pars, images,
+            cosmo=cosmo,
+            NH_1022pcm2=NH_1022pcm2,
+            maxradius_kpc=maxradius_kpc,
+            cx=cx, cy=cy,
+        )
+
+        self.p_prof = p_prof
+        self.mass_prof = mass_prof
+        self.Z_prof = Z_prof
+
+    def prior(self, pars):
+        return (
+                self.p_prof.prior(pars) +
+                self.mass_prof.prior(pars) +
+                self.Z_prof.prior(pars)
+        )
+
+    def computeProfiles(self, pars, radii):
+        """Compute plasma profiles assuming hydrostatic equilibrium
+
+        :param pars: Pars object with parameters
+        :param radii: Radii object with radii to compute for
+
+        Returns (ne_prof, T_prof, Z_prof)
+        """
+
+        Z_solar = self.Z_prof.compute(pars, radii)
+
+        # electron pressure as well as its radial derivative
+        pe_kevpcm3 = self.p_prof.compute(pars, radii)
+        pe_ergpcm3 = pe_kevpcm3 * keV_erg
+        dpe_dr_kevpcm4 = self.p_prof.compute_derivative(pars, radii)
+        dpe_dr_ergpcm4 = dpe_dr_kevpcm4 * keV_erg
+
+        # acceleration
+        g_cmps2, Phi_arr = self.mass_prof.compute(pars, radii)
+
+        # dp/dr = - rho * g  --> rho = - dp/dr / g
+        rho_gpcm3 = - dpe_dr_ergpcm4 / g_cmps2
+        ne_pcm3 = rho_gpcm3 / mu_g / mu_e
+        ne_pcm3 = N.clip(ne_pcm3, 1e-99, 1e99)
+
+        # calculate temperatures given pressures and densities
+        T_keV = pe_ergpcm3 / (P_keV_to_erg * ne_pcm3)
+        T_keV = N.clip(T_keV, self.Tmin, self.Tmax)
+
+        return ne_pcm3, T_keV, Z_solar
+
 
 class EmissionMeasureCluster(ClusterBase):
     """Less physical cluster model, where we parameterize using a projected emission measure profile.
@@ -349,9 +434,9 @@ class EmissionMeasureCluster(ClusterBase):
 
     def prior(self, pars):
         return (
-            self.emiss_prof.prior(pars) +
-            self.T_prof.prior(pars) +
-            self.Z_prof.prior(pars)
+                self.emiss_prof.prior(pars) +
+                self.T_prof.prior(pars) +
+                self.Z_prof.prior(pars)
         )
 
     def compute(self, pars, imgarrs):
@@ -393,17 +478,17 @@ class EmissionMeasureCluster(ClusterBase):
             pixsize_as = img.pixsize_as
             pixsize_cm = pixsize_as * self.cosmo.as_kpc * kpc_cm
 
-            em_scale = 1e-14 * pixsize_cm**2 / (
-                4*N.pi * (self.cosmo.D_A*Mpc_cm*(1+self.cosmo.z))**2)
-            norm_ppix2 = emiss_arr[pixsize_as]*em_scale
+            em_scale = 1e-14 * pixsize_cm ** 2 / (
+                    4 * N.pi * (self.cosmo.D_A * Mpc_cm * (1 + self.cosmo.z)) ** 2)
+            norm_ppix2 = emiss_arr[pixsize_as] * em_scale
 
             sb_arr = self.image_RateCalc[img].get(
                 T_arr[pixsize_as], Z_arr[pixsize_as], norm_ppix2)
             sb_arr = sb_arr.astype(N.float32)
 
             # compute centre in pixels
-            pix_cy = cy_as*img.invpixsize + img.origin[0]
-            pix_cx = cx_as*img.invpixsize + img.origin[1]
+            pix_cy = cy_as * img.invpixsize + img.origin[0]
+            pix_cx = cx_as * img.invpixsize + img.origin[1]
 
             # add SB profile to image
             addSBToImg_Comb(

@@ -275,6 +275,46 @@ class ProfileGNFWDensity(ProfileBase):
         return prof
 
 
+class ProfileGNFWPressure(ProfileGNFWDensity):
+    """Pressure profile with Nagai+07 formalism, and is used in UPP (Arnaud+10)"""
+
+    def __init__(self, name, pars):
+        ProfileBase.__init__(self, name, pars)
+        pars['%s_logp0' % name] = Par(math.log(1e-3), minval=-14, maxval=5., soft=True)
+        pars['%s_alpha' % name] = Par(1, minval=.5, maxval=2., soft=True)
+        pars['%s_beta' % name] = Par(math.log(5), minval=0., maxval=2., soft=True, xform="exp")
+        pars['%s_gamma' % name] = Par(math.log(0.1), minval=-10, maxval=0., soft=True, xform='exp')
+        pars['%s_logrs' % name] = Par(math.log(1000), minval=0., maxval=8., soft=True)
+
+    def compute(self, pars, radii):
+        p0 = math.exp(pars['%s_logp0' % self.name].v)
+        alpha = pars['%s_alpha' % self.name].v
+        beta = pars['%s_beta' % self.name].v
+        gamma = pars['%s_gamma' % self.name].v
+        rs_kpc = math.exp(pars['%s_logrs' % self.name].v)
+
+        prof = self._gnfwprof(radii.inner_kpc, radii.outer_kpc,
+                              p0, alpha, beta, gamma, rs_kpc)
+        return prof
+
+    def compute_derivative(self, pars, radii):
+        p0 = math.exp(pars['%s_logp0' % self.name].v)
+        alpha = pars['%s_alpha' % self.name].v
+        beta = pars['%s_beta' % self.name].v
+        gamma = pars['%s_gamma' % self.name].v
+        rs_kpc = math.exp(pars['%s_logrs' % self.name].v)
+
+        x = radii.cent_kpc / rs_kpc
+        cmpt1 = x ** (-1 - gamma)
+        cmpt2 = (x ** alpha + 1) ** (-(alpha + beta - gamma) / alpha)
+        cmpt3 = beta * x ** alpha + gamma
+
+        dp_over_dr = -p0 * cmpt1 * cmpt2 * cmpt3
+        dp_over_dr_kevpcm4 = dp_over_dr / (rs_kpc * kpc_cm)
+
+        return dp_over_dr_kevpcm4
+
+
 class ProfileVikhDensity(ProfileBase):
     """Density model from Vikhlinin+06, Eqn 3.
 
