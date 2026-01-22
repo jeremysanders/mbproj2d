@@ -387,21 +387,21 @@ class ClusterHydroPressureMass(ClusterBase):
         Z_solar = self.Z_prof.compute(pars, radii)
 
         # electron pressure as well as its radial derivative
-        pe_kevpcm3 = self.p_prof.compute(pars, radii)
-        pe_ergpcm3 = pe_kevpcm3 * keV_erg
-        dpe_dr_kevpcm4 = self.p_prof.compute_derivative(pars, radii)
-        dpe_dr_ergpcm4 = dpe_dr_kevpcm4 * keV_erg
+        ptot_kevpcm3 = self.p_prof.compute(pars, radii)
+        ptot_ergpcm3 = ptot_kevpcm3 * keV_erg
+        dptot_dr_kevpcm4 = self.p_prof.compute_derivative(pars, radii)
+        dptot_dr_ergpcm4 = dptot_dr_kevpcm4 * keV_erg
 
         # acceleration
         g_cmps2, Phi_arr = self.mass_prof.compute(pars, radii)
 
         # dp/dr = - rho * g  --> rho = - dp/dr / g
-        rho_gpcm3 = - dpe_dr_ergpcm4 / g_cmps2
+        rho_gpcm3 = - dptot_dr_ergpcm4 / g_cmps2
         ne_pcm3 = rho_gpcm3 / mu_g / mu_e
         ne_pcm3 = N.clip(ne_pcm3, 1e-99, 1e99)
 
         # calculate temperatures given pressures and densities
-        T_keV = pe_ergpcm3 / (P_keV_to_erg * ne_pcm3)
+        T_keV = ptot_ergpcm3 / (P_keV_to_erg * ne_pcm3)  # P_keV_to_erg includes Ptot to Pe conversion
         T_keV = N.clip(T_keV, self.Tmin, self.Tmax)
 
         return ne_pcm3, T_keV, Z_solar
