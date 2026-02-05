@@ -54,7 +54,7 @@ class Sxbkg(BackModelBase):
             self.imageRateCalcAbsorbed[img] = ApecRateCalc(*args, NH_1022pcm2, 0)
             self.imageRateCalcUnabsorbed[img] = ApecRateCalc(*args, 0, 0)
 
-    def compute(self, pars, imgarrs):
+    def compute(self, pars, imgarrs, apply_expmap=True):
         Tun = pars['%s_unabsorbed_T' % self.name].v
         Nun = math.exp(pars['%s_unabsorbed_lognorm' % self.name].v) * self.scale_un
 
@@ -69,7 +69,7 @@ class Sxbkg(BackModelBase):
             rate = rateAb + rateUn
             rate = rate * img.pixsize_as**2
 
-            if self.expmap is not None:
+            if self.expmap is not None and apply_expmap:
                 rate = img.expmaps[self.expmap] * rate
 
             imgarr += rate
@@ -98,7 +98,7 @@ class Cxb(BackModelBase):
             args = img.rmf, img.arf, img.emin_keV, img.emax_keV
             self.imageRateCalc[img] = PowerlawRateCalc(*args, NH_1022pcm2)
 
-    def compute(self, pars, imgarrs):
+    def compute(self, pars, imgarrs, apply_expmap=True):
         gamma = pars['%s_gamma' % self.name].v
         norm = math.exp(pars['%s_lognorm' % self.name].v) * self.norm_scale
 
@@ -109,7 +109,7 @@ class Cxb(BackModelBase):
             # normalize rate by the pixel size, i.e. calculate the norm per unit area
             rate = rate * img.pixsize_as**2
 
-            if self.expmap is not None:
+            if self.expmap is not None and apply_expmap:
                 rate = img.expmaps[self.expmap] * rate
 
             imgarr += rate
@@ -175,11 +175,11 @@ class BackModelXspecModel(BackModelBase):
             rate = rate*scale0 * img.pixsize_as**2
             self.rates.append(rate)
 
-    def compute(self, pars, imgarrs):
+    def compute(self, pars, imgarrs, apply_expmap=True):
         scale = math.exp(pars['%s_logscale' % self.name].v)
 
         for image, imgarr, rate in zip(self.images, imgarrs, self.rates):
             rate = rate * scale
-            if self.expmap is not None:
+            if self.expmap is not None and apply_expmap:
                 rate = rate * image.expmaps[self.expmap]
             imgarr += rate
