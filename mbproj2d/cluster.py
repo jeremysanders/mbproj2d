@@ -406,6 +406,13 @@ class ClusterHydroPressureMass(ClusterBase):
 
         return ne_pcm3, T_keV, Z_solar
 
+    def computeMassProfile(self, pars, radii):
+        """Compute g and potential given parameters."""
+
+        g_prof, pot_prof = self.mass_prof.compute(pars, radii)
+
+        return g_prof, pot_prof
+
 
 class EmissionMeasureCluster(ClusterBase):
     """Less physical cluster model, where we parameterize using a projected emission measure profile.
